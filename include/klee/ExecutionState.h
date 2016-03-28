@@ -20,20 +20,23 @@
 #include "../../lib/Core/Thread.h"
 #include "./../lib/Core/ThreadList.h"
 #include "./../lib/Core/Prefix.h"
+#include "./../lib/Core/CondManager.h"
+#include "./../lib/Core/BarrierManager.h"
+#include "./../lib/Core/MutexManager.h"
 #include <map>
 #include <set>
 #include <vector>
 
 namespace klee {
-  class Array;
-  class CallPathNode;
-  struct Cell;
-  struct KFunction;
-  struct KInstruction;
-  class MemoryObject;
-  class PTreeNode;
-  class ThreadScheduler;
-  struct InstructionInfo;
+class Array;
+class CallPathNode;
+struct Cell;
+struct KFunction;
+struct KInstruction;
+class MemoryObject;
+class PTreeNode;
+class ThreadScheduler;
+struct InstructionInfo;
 
 std::ostream &operator<<(std::ostream &os, const MemoryMap &mm);
 
@@ -69,55 +72,76 @@ class ExecutionState {
 //  typedef std::vector<StackFrame> stack_ty;
 
 private:
-  // unsupported, use copy constructor
-  ExecutionState &operator=(const ExecutionState&); 
-  std::map< std::string, std::string > fnAliases;
+	// unsupported, use copy constructor
+	ExecutionState &operator=(const ExecutionState&);
+	std::map<std::string, std::string> fnAliases;
 
 public:
-  bool fakeState;
-  // Are we currently underconstrained?  Hack: value is size to make fake
-  // objects.
-  unsigned underConstrained;
-  unsigned depth;
-  // pc - pointer to current instruction stream
+
+////added from Executor/////////////////////////////////////////////////////////////////////////////////////
+	MutexManager mutexManager;
+
+	CondManager condManager;
+
+	BarrierManager barrierManager;
+
+	//std::set<ExecutionState*> allThread; // all threads
+
+	// store the relation of join, key->threadId, value->a list of threads that are waiting key's termination
+	std::map<unsigned, std::vector<unsigned> > joinRecord;
+
+	bool isAbleToRun;
+
+	//是否在上一步执行中发生非抢占性切换
+	bool isNonPreempt;
+
+	//发生抢占性切换次数
+	unsigned ncs;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	bool fakeState;
+	// Are we currently underconstrained?  Hack: value is size to make fake
+	// objects.
+	unsigned underConstrained;
+	unsigned depth;
+	// pc - pointer to current instruction stream
 //  KInstIterator pc, prevPC;
 //  stack_ty stack;
-  ConstraintManager constraints;
-  mutable double queryCost;
-  double weight;
-  AddressSpace addressSpace;
-  TreeOStream pathOS, symPathOS;
-  unsigned instsSinceCovNew;
-  bool coveredNew;
+	ConstraintManager constraints;
+	mutable double queryCost;
+	double weight;
+	AddressSpace addressSpace;
+	TreeOStream pathOS, symPathOS;
+	unsigned instsSinceCovNew;
+	bool coveredNew;
 
-  /// Disables forking, set by user code.
-  bool forkDisabled;
+	/// Disables forking, set by user code.
+	bool forkDisabled;
 
-  std::map<const std::string*, std::set<unsigned> > coveredLines;
-  //PTreeNode *ptreeNode;
+	std::map<const std::string*, std::set<unsigned> > coveredLines;
+	//PTreeNode *ptreeNode;
 
-  /// ordered list of symbolics: used to generate test cases. 
-  //
-  // FIXME: Move to a shared list structure (not critical).
-  typedef std::vector< std::pair<const MemoryObject*, const Array*> > symbolicList;
-  std::vector< std::pair<const MemoryObject*, const Array*> > symbolics;
+	/// ordered list of symbolics: used to generate test cases.
+	//
+	// FIXME: Move to a shared list structure (not critical).
+	typedef std::vector<std::pair<const MemoryObject*, const Array*> > symbolicList;
+	std::vector<std::pair<const MemoryObject*, const Array*> > symbolics;
 
-  /// Set of used array names.  Used to avoid collisions.
-  std::set<std::string> arrayNames;
+	/// Set of used array names.  Used to avoid collisions.
+	std::set<std::string> arrayNames;
 
-  // Used by the checkpoint/rollback methods for fake objects.
-  // FIXME: not freeing things on branch deletion.
-  MemoryMap shadowObjects;
+	// Used by the checkpoint/rollback methods for fake objects.
+	// FIXME: not freeing things on branch deletion.
+	MemoryMap shadowObjects;
 
+	//unsigned incomingBBIndex;
 
+	std::string getFnAlias(std::string fn);
+	void addFnAlias(std::string old_fn, std::string new_fn);
+	void removeFnAlias(std::string fn);
 
-  //unsigned incomingBBIndex;
-
-  std::string getFnAlias(std::string fn);
-  void addFnAlias(std::string old_fn, std::string new_fn);
-  void removeFnAlias(std::string fn);
-  
-  //add by ylc to support pthread
+	//add by ylc to support pthread
 //  unsigned threadId;
 //  ExecutionState* parentThread;
 //  enum ThreadState {
@@ -131,71 +155,75 @@ public:
 //  };
 //
 //  ThreadState threadState;
-  ThreadScheduler* threadScheduler;
-  ThreadList threadList;
-  Thread* currentThread;
+	ThreadScheduler* threadScheduler;
+	ThreadList threadList;
+	Thread* currentThread;
 
 private:
-  //ExecutionState() : fakeState(false), underConstrained(0), ptreeNode(0) {}
-  ExecutionState() : fakeState(false), underConstrained(0) {}
+	//ExecutionState() : fakeState(false), underConstrained(0), ptreeNode(0) {}
+	ExecutionState() :
+			fakeState(false), underConstrained(0) {
+	}
 public:
-  ExecutionState(KFunction *kf);
+	ExecutionState(KFunction *kf);
 
-  ExecutionState(KFunction *kf, Prefix* prefix);
-  // XXX total hack, just used to make a state so solver can
-  // use on structure
-  ExecutionState(const std::vector<ref<Expr> > &assumptions);
+	ExecutionState(KFunction *kf, Prefix* prefix);
+	// XXX total hack, just used to make a state so solver can
+	// use on structure
+	ExecutionState(const std::vector<ref<Expr> > &assumptions);
 
-  ExecutionState(const ExecutionState& state);
+	ExecutionState(const ExecutionState& state);
 
 //  //add by ylc to support pthread
 //  ExecutionState(KFunction* kf, ExecutionState& state);
 
-  ~ExecutionState();
-  
-  ExecutionState *branch();
+	~ExecutionState();
+
+	ExecutionState *branch();
 
 //  void pushFrame(KInstIterator caller, KFunction *kf);
 //  void popFrame();
 
-  void addSymbolic(const MemoryObject *mo, const Array *array);
-  void addConstraint(ref<Expr> e) { 
-    constraints.addConstraint(e); 
-  }
+	void addSymbolic(const MemoryObject *mo, const Array *array);
+	void addConstraint(ref<Expr> e) {
+		constraints.addConstraint(e);
+	}
 
-  bool merge(const ExecutionState &b);
+	bool merge(const ExecutionState &b);
 
-  Thread* findThreadById(unsigned threadId);
+	Thread* findThreadById(unsigned threadId);
 
-  Thread* getNextThread();
+	Thread* getNextThread();
 
-  Thread* getCurrentThread();
+	Thread* getCurrentThread();
 
-  bool examineAllThreadFinalState();
+	bool examineAllThreadFinalState();
 
-  Thread* createThread(KFunction *kf);
+	Thread* createThread(KFunction *kf);
 
-  Thread* createThread(KFunction *kf, unsigned threadId);
+	Thread* createThread(KFunction *kf, unsigned threadId);
 
-  void swapOutThread(Thread* thread, bool isCondBlocked, bool isBarrierBlocked, bool isJoinBlocked, bool isTerminated);
+	void swapOutThread(Thread* thread, bool isCondBlocked,
+			bool isBarrierBlocked, bool isJoinBlocked, bool isTerminated);
 
-  void swapInThread(Thread* thread, bool isRunnable, bool isMutexBlocked);
+	void swapInThread(Thread* thread, bool isRunnable, bool isMutexBlocked);
 
-  void swapOutThread(unsigned threadId, bool isCondBlocked, bool isBarrierBlocked, bool isJoinBlocked, bool isTerminated);
+	void swapOutThread(unsigned threadId, bool isCondBlocked,
+			bool isBarrierBlocked, bool isJoinBlocked, bool isTerminated);
 
-  void swapInThread(unsigned threadId, bool isRunnable, bool isMutexBlocked);
+	void swapInThread(unsigned threadId, bool isRunnable, bool isMutexBlocked);
 
-  void switchThreadToMutexBlocked(Thread* thread);
+	void switchThreadToMutexBlocked(Thread* thread);
 
-  void switchThreadToMutexBlocked(unsigned threadId);
+	void switchThreadToMutexBlocked(unsigned threadId);
 
-  void switchThreadToRunnable(Thread* thread);
+	void switchThreadToRunnable(Thread* thread);
 
-  void switchThreadToRunnable(unsigned threadId);
+	void switchThreadToRunnable(unsigned threadId);
 
-  void reSchedule();
+	void reSchedule();
 
-  void dumpStack(std::ostream &out) const;
+	void dumpStack(std::ostream &out) const;
 
 //  bool isRunnable() {
 //	  return threadState == RUNNABLE;

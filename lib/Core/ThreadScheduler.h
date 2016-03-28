@@ -38,6 +38,11 @@ public:
 	virtual void printAllItem(std::ostream &os) = 0;
 	virtual void reSchedule() = 0;
 
+	//add by ywh
+	//move the thread item in the front
+	virtual	void moveItemFront(Thread* item) = 0;
+	virtual Thread* getThreadByID(unsigned threadId) = 0;
+
 	enum ThreadSchedulerType {
 		RR,
 		FIFS,
@@ -71,6 +76,11 @@ public:
 	void reSchedule();
 	void setCountZero();
 
+	//add by ywh
+	//move the thread item in the front
+	void moveItemFront(Thread* item);
+	Thread* getThreadByID(unsigned threadId);
+
 };
 
 /**
@@ -97,6 +107,11 @@ public:
 	void printAllItem(std::ostream &os);
 	void reSchedule();
 
+	//add by ywh
+	//move the thread item in the front
+	void moveItemFront(Thread* item);
+	Thread* getThreadByID(unsigned threadId);
+
 };
 
 class PreemptiveThreadScheduler : public ThreadScheduler {
@@ -120,6 +135,11 @@ public:
 	void removeItem(Thread* item);
 	void printAllItem(std::ostream &os);
 	void reSchedule();
+
+	//add by ywh
+	//move the thread item in the front
+	void moveItemFront(Thread* item);
+	Thread* getThreadByID(unsigned threadId);
 
 };
 
@@ -146,6 +166,11 @@ public:
 	void removeItem(Thread* item);
 	void printAllItem(std::ostream &os);
 	void reSchedule();
+
+	//add by ywh
+	//move the thread item in the front
+	void moveItemFront(Thread* item);
+	Thread* getThreadByID(unsigned threadId);
 };
 
 ThreadScheduler* getThreadSchedulerByType(ThreadScheduler::ThreadSchedulerType type);

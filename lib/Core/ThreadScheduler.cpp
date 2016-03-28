@@ -45,6 +45,9 @@ ThreadScheduler::~ThreadScheduler() {
 	// TODO Auto-generated destructor stub
 }
 
+void ThreadScheduler::moveItemFront(Thread* item) {
+}
+
 RRThreadScheduler::RRThreadScheduler() {
 	count = 0;
 }
@@ -195,6 +198,37 @@ void FIFSThreadScheduler::reSchedule() {
 	queue.push_back(thread);
 }
 
+//add by ywh 根据线程id来进行调换,因为传入的可能是其他state的线程id;
+void FIFSThreadScheduler::moveItemFront(Thread* item) {
+	unsigned threadId = item->threadId;
+
+	if((*(queue.begin()))->threadId == threadId){
+		return;
+	}
+
+	Thread* thread = 0;
+	for(list<Thread*>::iterator ti = queue.begin(), te = queue.end(); ti != te; ti++){
+		if((*ti)->threadId == threadId){
+			thread = *ti;
+			queue.push_front(thread);
+			queue.erase(ti);
+			break;
+		}
+	}
+
+}
+Thread* FIFSThreadScheduler::getThreadByID(unsigned threadId) {
+	Thread* thread = 0;
+	for (list<Thread*>::iterator ti = queue.begin(), te = queue.end();
+			ti != te; ti++) {
+		if ((*ti)->threadId == threadId) {
+			thread = *ti;
+			break;
+		}
+	}
+	return thread;
+}
+
 PreemptiveThreadScheduler::PreemptiveThreadScheduler() {
 
 }
@@ -319,4 +353,24 @@ void GuidedThreadScheduler::reSchedule() {
 	subScheduler->reSchedule();
 }
 
+void RRThreadScheduler::moveItemFront(Thread* item) {
+}
+
+Thread* RRThreadScheduler::getThreadByID(unsigned threadId) {
+}
+
+void PreemptiveThreadScheduler::moveItemFront(Thread* item) {
+}
+
+Thread* PreemptiveThreadScheduler::getThreadByID(unsigned threadId) {
+}
+
+void GuidedThreadScheduler::moveItemFront(Thread* item) {
+}
+
+Thread* GuidedThreadScheduler::getThreadByID(unsigned threadId) {
+}
+
+
 } /* namespace klee */
+

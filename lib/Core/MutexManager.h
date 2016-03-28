@@ -25,6 +25,9 @@ private:
 
 public:
 	MutexManager();
+
+	//add by ywh
+	MutexManager(const MutexManager& mutexManager);
 	virtual ~MutexManager();
 	bool lock(std::string mutexName, unsigned threadId,  bool& isBlocked, std::string& errorMsg);
 	bool lock(Mutex* mutex, unsigned threadId,  bool& isBlocked, std::string& errorMsg);

@@ -89,21 +89,40 @@ namespace {
 //  parentThread = &state;
 //}
 
-ExecutionState::ExecutionState(KFunction *kf) 
-  : fakeState(false),
-    underConstrained(false),
-    depth(0),
-    queryCost(0.), 
-    weight(1),
-    instsSinceCovNew(0),
-    coveredNew(false),
-    forkDisabled(false)
-    //ptreeNode(0)
-	{
+ExecutionState::ExecutionState(KFunction *kf) :
+		fakeState(false),
+		underConstrained(false),
+		depth(0),
+		queryCost(0.),
+		weight(1),
+		instsSinceCovNew(0),
+		coveredNew(false),
+		forkDisabled(false),
 
-	threadScheduler = getThreadSchedulerByType(ThreadScheduler::RR);
+		//add by ywh,for contextswitch
+		mutexManager(),
+		condManager(),
+		isAbleToRun(true),
+
+		//是否在上一步执行中发生非抢占性切换
+		isNonPreempt(false),
+
+		//发生抢占性切换次数
+		ncs(0)
+//ptreeNode(0)
+{
+
+	//add by ywh, for contextswitch
+	condManager.setMutexManager(&mutexManager);
+
+	//condManager.setExecutor(this);
+
+	//changed RR to FIFS
+	threadScheduler = getThreadSchedulerByType(ThreadScheduler::FIFS);
+
 	//threadScheduler = getThreadSchedulerByType(ThreadScheduler::Preemptive);
-	Thread* thread = new Thread(Thread::getNextThreadId(), NULL, &addressSpace, kf);
+	Thread* thread = new Thread(Thread::getNextThreadId(), NULL, &addressSpace,
+			kf);
 	threadList.addThread(thread);
 	threadScheduler->addItem(thread);
 	currentThread = thread;
@@ -117,9 +136,22 @@ ExecutionState::ExecutionState(KFunction *kf, Prefix* prefix)
     weight(1),
     instsSinceCovNew(0),
     coveredNew(false),
-    forkDisabled(false)
+    forkDisabled(false),
     //ptreeNode(0)
-	{
+	//add by ywh,for contextswitch
+	mutexManager(),
+	condManager(),
+	isAbleToRun(true),
+
+	//是否在上一步执行中发生非抢占性切换
+	isNonPreempt(false),
+
+	//发生抢占性切换次数
+	ncs(0)
+//ptreeNode(0)
+{
+	//add by ywh, for contextswitch
+	condManager.setMutexManager(&mutexManager);
 
 	threadScheduler = new GuidedThreadScheduler(this, ThreadScheduler::RR, prefix);
 	//threadScheduler = new GuidedThreadScheduler(this, ThreadScheduler::Preemptive, prefix);
@@ -175,7 +207,20 @@ ExecutionState::ExecutionState(const ExecutionState& state)
     //ptreeNode(state.ptreeNode),
     symbolics(state.symbolics),
     arrayNames(state.arrayNames),
-    shadowObjects(state.shadowObjects)
+    shadowObjects(state.shadowObjects),
+
+	isAbleToRun(state.isAbleToRun),
+
+	//是否在上一步执行中发生非抢占性切换
+	isNonPreempt(state.isNonPreempt),
+
+	//发生抢占性切换次数
+	ncs(state.ncs),
+	//add by ywh
+	joinRecord(state.joinRecord),
+	mutexManager(state.mutexManager),
+	condManager(state.condManager),
+	barrierManager(state.barrierManager)
 //    incomingBBIndex(state.incomingBBIndex),
 //    threadId(state.threadId),
 //    parentThread(NULL),
@@ -188,10 +233,13 @@ ExecutionState::ExecutionState(const ExecutionState& state)
 	  Thread* thread = new Thread(**ti, &addressSpace);
 	  threadList.addThread(thread);
   }
+
   currentThread = findThreadById(state.currentThread->threadId);
   std::map<unsigned, Thread*> unfinishedThread = threadList.getAllUnfinishedThreads();
-  //threadScheduler = new FIFSThreadScheduler(*(FIFSThreadScheduler*)(state.threadScheduler), unfinishedThread);
-  threadScheduler = new PreemptiveThreadScheduler(*(PreemptiveThreadScheduler*)(state.threadScheduler), unfinishedThread);
+  threadScheduler = new FIFSThreadScheduler(*(FIFSThreadScheduler*)(state.threadScheduler), unfinishedThread);
+
+  //TODO:have some question there?, I just have this code comment-out
+  /*threadScheduler = new PreemptiveThreadScheduler(*(PreemptiveThreadScheduler*)(state.threadScheduler), unfinishedThread);*/
 }
 
 ExecutionState *ExecutionState::branch() {

@@ -143,6 +143,15 @@ void CondManager::print(ostream &out) {
 	}
 }
 
+CondManager::CondManager(const CondManager& condManager):
+	nextConditionId(condManager.nextConditionId),
+	condPool(condManager.condPool)
+
+//have some problems
+{
+	mutexManager = new MutexManager(*condManager.mutexManager);
+}
+
 unsigned CondManager::getNextConditionId() {
 	return nextConditionId;
 }

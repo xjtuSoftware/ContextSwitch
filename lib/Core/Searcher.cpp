@@ -78,6 +78,7 @@ void DFSSearcher::update(ExecutionState *current,
     } else {
       bool ok = false;
 
+      //std::cerr << "states************************" << states.size() << std::endl;
       for (std::vector<ExecutionState*>::iterator it = states.begin(),
              ie = states.end(); it != ie; ++it) {
         if (es==*it) {

@@ -19,6 +19,9 @@ private:
 
 public:
 	BarrierManager();
+
+	//add by ywh
+	BarrierManager(const BarrierManager& barrierManager);
 	virtual ~BarrierManager();
 	bool init(std::string barrierName, unsigned count, std::string& errorMsg);
 	bool wait(std::string barrierName, unsigned threadId, bool& isReleased, std::vector<unsigned>& blockedList, std::string& errorMsg);

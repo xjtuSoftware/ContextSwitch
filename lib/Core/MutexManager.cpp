@@ -20,6 +20,12 @@ MutexManager::MutexManager()
 
 }
 
+MutexManager::MutexManager(const MutexManager& mutexManager) :
+	nextMutexId(mutexManager.nextMutexId),
+	mutexPool(mutexManager.mutexPool),
+	blockedThreadPool(mutexManager.blockedThreadPool){
+}
+
 MutexManager::~MutexManager() {
 	// TODO Auto-generated destructor stub
 	clear();
@@ -136,3 +142,5 @@ bool MutexManager::tryToLockForBlockedThread(unsigned threadId, bool& isBlocked,
 }
 
 }
+
+

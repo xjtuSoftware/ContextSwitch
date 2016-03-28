@@ -202,6 +202,7 @@ private:
 
 	ListenerService* listenerService;
 
+/*转移到state中
 	MutexManager mutexManager;
 
 	CondManager condManager;
@@ -211,6 +212,7 @@ private:
 	//std::set<ExecutionState*> allThread; // all threads
 
 	std::map<unsigned, std::vector<unsigned> > joinRecord; // store the relation of join, key->threadId, value->a list of threads that are waiting key's termination
+*/
 
 	bool isFinished; // whether the verification is finished
 

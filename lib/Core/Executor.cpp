@@ -239,8 +239,11 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 						std::min(MaxCoreSolverTime, MaxInstructionTime) :
 						std::max(MaxCoreSolverTime, MaxInstructionTime)),
 		//ptreeVector(20),
-		mutexManager(),
-		condManager(),
+
+		//TODO: transfer this to state
+		/*mutexManager(),
+		condManager(),*/
+
 		isFinished(false),
 		isPrefixFinished(false),
 		prefix(NULL),
@@ -249,8 +252,11 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 		execStatus(SUCCESS) {
 	if (coreSolverTimeout)
 		UseForkedCoreSolver = true;
-	condManager.setMutexManager(&mutexManager);
-	condManager.setExecutor(this);
+
+	//TODO:transfer this to state;
+	/*condManager.setMutexManager(&mutexManager);
+	condManager.setExecutor(this);*/
+
 	//cerr << &mutexManager << " " << condManager.mutexManager << endl;
 	Solver *coreSolver = NULL;
 
@@ -1491,9 +1497,11 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 		if (thread->stack.size() <= 1) {
 			assert(!caller && "caller set on initial stack frame");
 			//recover join thread
-			map<unsigned, vector<unsigned> >::iterator ji = joinRecord.find(
+
+			//TODO:joinRecord => state.joinRecord
+			map<unsigned, vector<unsigned> >::iterator ji = state.joinRecord.find(
 					thread->threadId);
-			if (ji != joinRecord.end()) {
+			if (ji != state.joinRecord.end()) {
 				for (vector<unsigned>::iterator bi = ji->second.begin(), be =
 						ji->second.end(); bi != be; bi++) {
 					state.swapInThread(*bi, true, false);
@@ -2903,154 +2911,233 @@ void Executor::run(ExecutionState &initialState) {
 
 	states.insert(&initialState);
 
-//  if (usingSeeds) {
-//    std::vector<SeedInfo> &v = seedMap[&initialState];
-//
-//    for (std::vector<KTest*>::const_iterator it = usingSeeds->begin(),
-//           ie = usingSeeds->end(); it != ie; ++it)
-//      v.push_back(SeedInfo(*it));
-//
-//    int lastNumSeeds = usingSeeds->size()+10;
-//    double lastTime, startTime = lastTime = util::getWallTime();
-//    ExecutionState *lastState = 0;
-//    while (!seedMap.empty()) {
-//      if (haltExecution) goto dump;
-//
-//      std::map<ExecutionState*, std::vector<SeedInfo> >::iterator it =
-//        seedMap.upper_bound(lastState);
-//      if (it == seedMap.end())
-//        it = seedMap.begin();
-//      lastState = it->first;
-//      unsigned numSeeds = it->second.size();
-//      ExecutionState &state = *lastState;
-//      //perhaps have error
-//      // ylc
-//      Thread* thread = state.getNextThread();
-//      KInstruction *ki = thread->pc;
-//      stepInstruction(state);
-//
-//      executeInstruction(state, ki);
-//      processTimers(&state, MaxInstructionTime * numSeeds);
-//      updateStates(&state);
-//
-//      if ((stats::instructions % 1000) == 0) {
-//        int numSeeds = 0, numStates = 0;
-//        for (std::map<ExecutionState*, std::vector<SeedInfo> >::iterator
-//               it = seedMap.begin(), ie = seedMap.end();
-//             it != ie; ++it) {
-//          numSeeds += it->second.size();
-//          numStates++;
-//        }
-//        double time = util::getWallTime();
-//        if (SeedTime>0. && time > startTime + SeedTime) {
-//          klee_warning("seed time expired, %d seeds remain over %d states",
-//                       numSeeds, numStates);
-//          break;
-//        } else if (numSeeds<=lastNumSeeds-10 ||
-//                   time >= lastTime+10) {
-//          lastTime = time;
-//          lastNumSeeds = numSeeds;
-//          klee_message("%d seeds remaining over: %d states",
-//                       numSeeds, numStates);
-//        }
-//      }
-//    }
-//
-//    klee_message("seeding done (%d states remain)", (int) states.size());
-//
-//    // XXX total hack, just because I like non uniform better but want
-//    // seed results to be equally weighted.
-//    for (std::set<ExecutionState*>::iterator
-//           it = states.begin(), ie = states.end();
-//         it != ie; ++it) {
-//      (*it)->weight = 1.;
-//    }
-//
-//    if (OnlySeed)
-//      goto dump;
-//  }
-
 	searcher = constructUserSearcher(*this);
 
 	searcher->update(0, states, std::set<ExecutionState*>());
 
-	listenerService->beforeRunMethodAsMain(initialState);
+	//listenerService->beforeRunMethodAsMain(initialState);
 
 	//insert global mutex ,condition and barrier
 	handleInitializers(initialState);
 
+	//test first Loop times
+	int firstLpTimes = 0;
+
+	//test second Loop times
+	int secondLpTimes = 0;
+
+	//test the num of state
+	//int num = 0;
+
 	while (!states.empty() && !haltExecution) {
+
+		cerr << "------------------------------> states " << states.size()
+				<< endl;
+
 		ExecutionState &state = searcher->selectState();
+
+		//cerr << "the address of state--------------->" << &state << endl;
+
 		Thread* thread = state.getNextThread();
-		bool isAbleToRun = true;
-		switch (thread->threadState) {
-		case Thread::RUNNABLE: {
-			break;
-		}
 
-		case Thread::MUTEX_BLOCKED: {
-			//死锁检测可以完善
-			Thread* origin = thread;
-			do {
-				string errorMsg;
-				bool isBlocked;
-				bool deadlock = false;
-				if (mutexManager.tryToLockForBlockedThread(thread->threadId,
-						isBlocked, errorMsg)) {
-					if (isBlocked) {
-						if (prefix && !prefix->isFinished()) {
-							cerr << "thread" << thread->threadId << ": "
-									<< thread->pc->info->file << "/"
-									<< thread->pc->info->line << " "
-									<< thread->pc->inst->getOpcodeName()
-									<< endl;
-							cerr
-									<< "thread state is MUTEX_BLOCKED, try to get lock but failed\n";
-							isAbleToRun = false;
-							break;
-							//assert(0 && "thread state is MUTEX_BLOCKED, try to get lock but failed");
-						}
-						state.reSchedule();
-						thread = state.getNextThread();
-						if (thread == origin) {
-							if (deadlock) {
-								cerr << "perhaps deadlock happen\n";
-								isAbleToRun = false;
-								break;
-								//assert(0 && "perhaps deadlock happen");
-							} else {
-								deadlock = true;
-							}
-						}
-					} else {
-						state.switchThreadToRunnable(thread);
-					}
-				} else {
-					cerr << errorMsg << endl;
-					assert(0 && "try to get lock but failed");
-				}
-			} while (!thread->isRunnable());
+/////////////Test////////////////////////////////////////////////////////////////
+		firstLpTimes++;
+		cerr << "states excute num:" << firstLpTimes << endl;
+		/*cerr << "thread to run, Id: " << thread->threadId
+							<< " state: " << thread->threadState << endl;*/
+//////////////////////////////////////////////////////////////////////////////////
 
-			break;
-		}
-
-		default: {
-			isAbleToRun = false;
-		}
-
-		}
 
 		//处理前缀出错以及执行出错
+		if (!state.isAbleToRun) {
+			//isExecutionSuccess = false;
+			//execStatus = RUNTIMEERROR;
+
+			cerr << "exeStatus--------------------> errrrrrorrr" << endl;
+
+			//listenerService->executionFailed(state, state.currentThread->pc);
+			cerr << "thread unable to run, Id: " << thread->threadId
+					<< " state: " << thread->threadState << endl;
+			cerr << "inst is: ";
+			thread->pc->inst->dump();
+			terminateState(state);
+			updateStates(&state);
+			continue;
+			//assert(0 && "thread are unable to execute!");
+		}
+
+		KInstruction *ki = thread->pc;
+		stepInstruction(state);
+
+		//listenerService->executeInstruction(state, ki);
+
+		executeInstruction(state, ki);
+
+		//listenerService->instructionExecuted(state, ki);
+
+		/*if (prefix) {
+		 prefix->increase();
+		 }*/
+
+		if (execStatus != SUCCESS) {
+
+			cerr << "------------------------> exeStatus failed" << endl;
+
+			updateStates(&state);
+			break;
+		}
+
+		if (state.threadScheduler->isSchedulerEmpty()) {
+			if (!state.examineAllThreadFinalState()) {
+				execStatus = RUNTIMEERROR;
+			} else {
+				execStatus = SUCCESS;
+			}
+			terminateState(state);
+		}
+
+		updateStates(&state);
+
+		bool contextSwitch = true;
+		bool originStateRemoved = false;
+
+		secondLpTimes = 0;
+
+		Thread* originThread = thread;
+
+		for (int i = 0; i < state.threadScheduler->itemNum(); i++) {
+
+//////////////Test///////////////////////////////////////////////////////////////////////
+			cerr << "threadNum+++++++++++++++++++++++++++++>" << ++secondLpTimes
+					<< "+++++++++++++++++++++++++++++"<< endl;
+//////////////////////////////////////////////////////////////////////////////////////////
+			if(!contextSwitch){
+				break;
+			}
+
+			ExecutionState *newState = 0;
+
+			cerr << "state Id---------------------------->" << &state << endl;
+
+			//如果线程切换次数大于2执行过一次后就不在进行切换。
+			if(state.ncs >= 2){
+				newState = &state;
+				contextSwitch = false;
+			} else {
+
+				newState = new ExecutionState(state);
+				state.reSchedule();
+
+				cerr << "threadOriginId***************************>" << thread << endl;
+				thread = state.getNextThread();
+
+				cerr << "threadId********************************>" << thread << endl;
+
+				newState->threadScheduler->moveItemFront(thread);
+
+				if (thread != originThread && !state.isNonPreempt) {
+					newState->ncs++;
+					cerr << "------------------------context switch------------------------" << endl;
+				}
+
+				addedStates.insert(newState);
+
+				if(!originStateRemoved){
+					removedStates.insert(&state);
+
+					cerr << "removeStatesNum--------------->" << removedStates.size() << endl;
+					cerr << "states---------------------->" << states.size() << endl;
+
+					originStateRemoved = true;
+				}
+
+
+			}
+
+
+			cerr << "threadId---------------------------------->" << thread->threadId << endl;
+
+			switch (thread->threadState) {
+			case Thread::RUNNABLE: {
+				break;
+			}
+
+			case Thread::MUTEX_BLOCKED: {
+				//死锁检测可以完善
+				Thread* origin = thread;
+				bool deadlock = false;
+				do {
+					string errorMsg;
+					bool isBlocked;
+
+					//TODO:mutexManager => state.mutexManager
+					if (state.mutexManager.tryToLockForBlockedThread(
+							thread->threadId, isBlocked, errorMsg)) {
+						if (isBlocked) {
+
+							newState->isNonPreempt = true;
+							/*if (prefix && !prefix->isFinished()) {
+								cerr << "thread" << thread->threadId << ": "
+										<< thread->pc->info->file << "/"
+										<< thread->pc->info->line << " "
+										<< thread->pc->inst->getOpcodeName()
+										<< endl;
+								cerr
+										<< "thread state is MUTEX_BLOCKED, try to get lock but failed\n";
+								newState->isAbleToRun = false;
+								break;
+								//assert(0 && "thread state is MUTEX_BLOCKED, try to get lock but failed");
+							}*/
+							state.reSchedule();
+							++i;
+							thread = state.getNextThread();
+							newState->threadScheduler->moveItemFront(thread);
+							if (thread == origin) {
+								if (deadlock) {
+									cerr << "perhaps deadlock happen\n";
+									newState->isAbleToRun = false;
+									break;
+									//assert(0 && "perhaps deadlock happen");
+								} else {
+									deadlock = true;
+								}
+							}
+						} else {
+							//state.switchThreadToRunnable(thread);
+							newState->switchThreadToRunnable(
+									newState->threadScheduler->getThreadByID(
+											thread->threadId));
+						}
+					} else {
+						cerr << errorMsg << endl;
+						assert(0 && "try to get lock but failed");
+					}
+				} while (!thread->isRunnable());
+
+
+
+				break;
+			}
+
+			default: {
+				newState->isAbleToRun = false;
+			}
+
+			}
+		}
+
+		updateStates(&state);
+		/*//处理前缀出错以及执行出错
 		if (!isAbleToRun) {
 			//isExecutionSuccess = false;
 			execStatus = RUNTIMEERROR;
-			listenerService->executionFailed(state, state.currentThread->pc);
+			//listenerService->executionFailed(state, state.currentThread->pc);
 			cerr << "thread unable to run, Id: " << thread->threadId
 					<< " state: " << thread->threadState << endl;
 			terminateState(state);
 			break;
 			//assert(0 && "thread are unable to execute!");
-		}
+		}*/
 //    if (!thread->isRunnable()) {
 //    	if (prefix && !prefix->isFinished()) {
 //    		isExecutionSuccess = false;
@@ -3065,7 +3152,7 @@ void Executor::run(ExecutionState &initialState) {
 //    		assert(0 && "thread unrunnable");
 //    	}
 //    }
-		KInstruction *ki = thread->pc;
+		/*KInstruction *ki = thread->pc;
 		if (prefix && !prefix->isFinished() && ki != prefix->getCurrentInst()) {
 			//cerr << "prefix: " << prefix->getCurrentInst() << " " << prefix->getCurrentInst()->inst->getOpcodeName() << " reality: " << ki << " " << ki->inst->getOpcodeName() << endl;
 //			cerr << "thread id : " << thread->threadId << "\n";
@@ -3083,11 +3170,11 @@ void Executor::run(ExecutionState &initialState) {
 
 		stepInstruction(state);
 
-		listenerService->executeInstruction(state, ki);
+		//listenerService->executeInstruction(state, ki);
 
 		executeInstruction(state, ki);
 
-		listenerService->instructionExecuted(state, ki);
+		//listenerService->instructionExecuted(state, ki);
 
 		if (prefix) {
 			prefix->increase();
@@ -3095,8 +3182,10 @@ void Executor::run(ExecutionState &initialState) {
 		if (execStatus != SUCCESS) {
 			updateStates(&state);
 			break;
-		}
+		}*/
 		processTimers(&state, MaxInstructionTime);
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		if (MaxMemory) {
 			if ((stats::instructions & 0xFFFF) == 0) {
 				// We need to avoid calling GetMallocUsage() often because it
@@ -3144,7 +3233,10 @@ void Executor::run(ExecutionState &initialState) {
 				}
 			}
 		}
-		if (state.threadScheduler->isSchedulerEmpty()) {
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+		/*if (state.threadScheduler->isSchedulerEmpty()) {
 			if(!state.examineAllThreadFinalState()){
 				execStatus = RUNTIMEERROR;
 			}else {
@@ -3152,13 +3244,13 @@ void Executor::run(ExecutionState &initialState) {
 			}
 			terminateState(state);
 		}
-		updateStates(&state);
+		updateStates(&state);*/
 	}
 
 	delete searcher;
 	searcher = 0;
 
-	listenerService->afterRunMethodAsMain();
+	//listenerService->afterRunMethodAsMain();
 
 	if (DumpStatesOnHalt && !states.empty()) {
 		std::cerr << "KLEE: halting execution, dumping remaining states\n";
@@ -3939,11 +4031,11 @@ void Executor::runFunctionAsMain(Function *f, int argc, char **argv,
 		}
 	}
 	ExecutionState *state;
-	if (prefix) {
+	/*if (prefix) {
 		state = new ExecutionState(kmodule->functionMap[f], prefix);
-	} else {
+	} else*/
 		state = new ExecutionState(kmodule->functionMap[f]);
-	}
+
 	if (pathWriter)
 		state->pathOS = pathWriter->open();
 	if (symPathWriter)
@@ -4142,6 +4234,7 @@ Expr::Width Executor::getWidthForLLVMType(LLVM_TYPE_Q llvm::Type *type) const {
 
 ///
 
+//called in main , produce executor
 Interpreter *Interpreter::create(const InterpreterOptions &opts,
 		InterpreterHandler *ih) {
 	return new Executor(opts, ih);
@@ -4211,12 +4304,14 @@ unsigned Executor::executePThreadJoin(ExecutionState &state, KInstruction *ki,
 		Thread* joinThread = state.findThreadById(threadId);
 		if (joinThread) {
 			if (!joinThread->isTerminated()) {
-				map<unsigned, vector<unsigned> >::iterator ji = joinRecord.find(
+
+				//TODO: joinRecord => state.joinRecord
+				map<unsigned, vector<unsigned> >::iterator ji = state.joinRecord.find(
 						threadId);
-				if (ji == joinRecord.end()) {
+				if (ji == state.joinRecord.end()) {
 					vector<unsigned> blockedList;
 					blockedList.push_back(state.currentThread->threadId);
-					joinRecord.insert(make_pair(threadId, blockedList));
+					state.joinRecord.insert(make_pair(threadId, blockedList));
 				} else {
 					ji->second.push_back(state.currentThread->threadId);
 				}
@@ -4249,7 +4344,9 @@ unsigned Executor::executePThreadCondWait(ExecutionState &state,
 	string condName = Transfer::uint64toString(condAddress->getZExtValue());
 	string mutexName = Transfer::uint64toString(mutexAddress->getZExtValue());
 	string errorMsg;
-	bool isSuccess = condManager.wait(condName, mutexName,
+
+	//TODO: condManager => state.condManager
+	bool isSuccess = state.condManager.wait(condName, mutexName,
 			state.currentThread->threadId, errorMsg);
 	if (isSuccess) {
 		state.swapOutThread(state.currentThread, true, false, false, false);
@@ -4272,7 +4369,9 @@ unsigned Executor::executePThreadCondSignal(ExecutionState &state,
 	string condName = Transfer::uint64toString(condAddress->getZExtValue());
 	string errorMsg;
 	unsigned releasedThreadId;
-	bool isSuccess = condManager.signal(condName, releasedThreadId, errorMsg);
+
+	//TODO: condManager => state.condManager
+	bool isSuccess = state.condManager.signal(condName, releasedThreadId, errorMsg);
 	if (isSuccess) {
 		if (releasedThreadId != 0) {
 			state.swapInThread(releasedThreadId, false, true);
@@ -4296,7 +4395,9 @@ unsigned Executor::executePThreadCondBroadcast(ExecutionState &state,
 	string condName = Transfer::uint64toString(condAddress->getZExtValue());
 	vector<unsigned> threadList;
 	string errorMsg;
-	bool isSuccess = condManager.broadcast(condName, threadList, errorMsg);
+
+	//TODO: condManager => state.condManager
+	bool isSuccess = state.condManager.broadcast(condName, threadList, errorMsg);
 	if (isSuccess) {
 		vector<unsigned>::iterator ti, te;
 		vector<bool>::iterator bi;
@@ -4323,7 +4424,9 @@ unsigned Executor::executePThreadMutexLock(ExecutionState &state,
 		string key = Transfer::uint64toString(mutexAddress->getZExtValue());
 		string errorMsg;
 		bool isBlocked;
-		bool isSuccess = mutexManager.lock(key, state.currentThread->threadId,
+
+		//TODO: mutexManager => state.mutexManager
+		bool isSuccess = state.mutexManager.lock(key, state.currentThread->threadId,
 				isBlocked, errorMsg);
 		if (isSuccess) {
 			if (isBlocked) {
@@ -4349,7 +4452,9 @@ unsigned Executor::executePThreadMutexUnlock(ExecutionState &state,
 	if (mutexAddress) {
 		string key = Transfer::uint64toString(mutexAddress->getZExtValue());
 		string errorMsg;
-		bool isSuccess = mutexManager.unlock(key, errorMsg);
+
+		//TODO： mutexManager => state.mutexManager
+		bool isSuccess = state.mutexManager.unlock(key, errorMsg);
 		if (!isSuccess) {
 			cerr << errorMsg << endl;
 			assert(0 && "unlock error");
@@ -4376,7 +4481,9 @@ unsigned Executor::executePThreadBarrierInit(ExecutionState &state,
 	string barrierName = Transfer::uint64toString(
 			barrierAddress->getZExtValue());
 	string errorMsg;
-	bool isSuccess = barrierManager.init(barrierName, count->getZExtValue(),
+
+	//TODO : barrierManager => state.barrierManager
+	bool isSuccess = state.barrierManager.init(barrierName, count->getZExtValue(),
 			errorMsg);
 	if (!isSuccess) {
 		cerr << errorMsg << endl;
@@ -4399,7 +4506,9 @@ unsigned Executor::executePThreadBarrierWait(ExecutionState &state,
 	vector<unsigned> blockedList;
 	bool isReleased = false;
 	string errorMsg;
-	bool isSuccess = barrierManager.wait(barrierName,
+
+	//TODO: barrierManager => state.barrierManager
+	bool isSuccess = state.barrierManager.wait(barrierName,
 			state.currentThread->threadId, isReleased, blockedList, errorMsg);
 	if (isSuccess) {
 		if (isReleased) {
@@ -4551,20 +4660,22 @@ void Executor::createSpecialElement(ExecutionState& state, Type* type,
 			}
 			if (type->getStructName() == "union.pthread_mutex_t") {
 				string mutexName = Transfer::uint64toString(startAddress);
-				mutexManager.addMutex(mutexName, errorMsg);
+
+				//TODO:mutexManger, conddManager, barrierManager => state.mutexManager,conddManager, barrierManager
+				state.mutexManager.addMutex(mutexName, errorMsg);
 				startAddress += kmodule->targetData->getTypeSizeInBits(type)
 						/ 8;
 			} else if (type->getStructName() == "union.pthread_cond_t") {
 				string condName = Transfer::uint64toString(startAddress);
 				if (prefix) {
-					condManager.addCondition(condName, errorMsg, prefix);
+					state.condManager.addCondition(condName, errorMsg, prefix);
 				} else {
-					condManager.addCondition(condName, errorMsg);
+					state.condManager.addCondition(condName, errorMsg);
 				}
 				startAddress += kmodule->targetData->getTypeSizeInBits(type)
 						/ 8;
 			} else if (type->getStructName() == "union.pthread_barrier_t") {
-				barrierManager.addBarrier(
+				state.barrierManager.addBarrier(
 						Transfer::uint64toString(startAddress), errorMsg);
 				startAddress += kmodule->targetData->getTypeSizeInBits(type)
 						/ 8;
@@ -4625,17 +4736,19 @@ void Executor::createSpecialElement(ExecutionState& state, Type* type,
 //}
 void Executor::runVerification(llvm::Function *f, int argc, char **argv,
 		char **envp) {
-	while (!isFinished && execStatus != RUNTIMEERROR) {
+	runFunctionAsMain(f, argc, argv, envp);
+	/*while (!isFinished && execStatus != RUNTIMEERROR) {
 		execStatus = SUCCESS;
 		listenerService->startControl(this);
-		runFunctionAsMain(f, argc, argv, envp);
+
 		listenerService->endControl(this);
 		prepareNextExecution();
-	}
+	}*/
 }
 
+//in contextSwitch program don't use  this method, maybe will use in delete, now just comment out
 void Executor::prepareNextExecution() {
-	mutexManager.clear();
+	/*mutexManager.clear();
 	condManager.clear();
 	barrierManager.clear();
 	joinRecord.clear();
@@ -4643,7 +4756,7 @@ void Executor::prepareNextExecution() {
 	for (std::set<ExecutionState*>::const_iterator it = states.begin(), ie =
 			states.end(); it != ie; ++it) {
 		delete *it;
-	}
+	}*/
 }
 
 void Executor::getNewPrefix() {
