@@ -172,12 +172,21 @@ void FIFSThreadScheduler::addItem(Thread* item) {
 }
 
 void FIFSThreadScheduler::removeItem(Thread* item) {
+
+	bool isremoved = false;
+
 	for (list<Thread*>::iterator ti = queue.begin(), te = queue.end(); ti!= te; ti++) {
 		if (*ti == item) {
 			queue.erase(ti);
+			isremoved = true;
 			break;
 		}
 	}
+
+	if(!isremoved){
+		cerr << "the blocked thread is not removed" << endl;
+	}
+
 }
 
 void FIFSThreadScheduler::printAllItem(ostream &os) {

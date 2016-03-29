@@ -2943,8 +2943,6 @@ void Executor::run(ExecutionState &initialState) {
 /////////////Test////////////////////////////////////////////////////////////////
 		firstLpTimes++;
 		cerr << "states excute num:" << firstLpTimes << endl;
-		/*cerr << "thread to run, Id: " << thread->threadId
-							<< " state: " << thread->threadState << endl;*/
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -2975,10 +2973,6 @@ void Executor::run(ExecutionState &initialState) {
 
 		//listenerService->instructionExecuted(state, ki);
 
-		/*if (prefix) {
-		 prefix->increase();
-		 }*/
-
 		if (execStatus != SUCCESS) {
 
 			cerr << "------------------------> exeStatus failed" << endl;
@@ -3003,6 +2997,7 @@ void Executor::run(ExecutionState &initialState) {
 
 		secondLpTimes = 0;
 
+		thread = state.getNextThread();
 		Thread* originThread = thread;
 
 		for (int i = 0; i < state.threadScheduler->itemNum(); i++) {
@@ -3021,6 +3016,10 @@ void Executor::run(ExecutionState &initialState) {
 
 			//如果线程切换次数大于2执行过一次后就不在进行切换。
 			if(state.ncs >= 2){
+
+				cerr << "no context switch" << endl;
+				cerr << "state current thread state" << endl;
+
 				newState = &state;
 				contextSwitch = false;
 			} else {
@@ -3076,18 +3075,7 @@ void Executor::run(ExecutionState &initialState) {
 						if (isBlocked) {
 
 							newState->isNonPreempt = true;
-							/*if (prefix && !prefix->isFinished()) {
-								cerr << "thread" << thread->threadId << ": "
-										<< thread->pc->info->file << "/"
-										<< thread->pc->info->line << " "
-										<< thread->pc->inst->getOpcodeName()
-										<< endl;
-								cerr
-										<< "thread state is MUTEX_BLOCKED, try to get lock but failed\n";
-								newState->isAbleToRun = false;
-								break;
-								//assert(0 && "thread state is MUTEX_BLOCKED, try to get lock but failed");
-							}*/
+
 							state.reSchedule();
 							++i;
 							thread = state.getNextThread();
@@ -3114,12 +3102,11 @@ void Executor::run(ExecutionState &initialState) {
 					}
 				} while (!thread->isRunnable());
 
-
-
 				break;
 			}
 
 			default: {
+				//cerr << "thread state=============================>" << thread->threadState << endl;
 				newState->isAbleToRun = false;
 			}
 
@@ -3127,62 +3114,7 @@ void Executor::run(ExecutionState &initialState) {
 		}
 
 		updateStates(&state);
-		/*//处理前缀出错以及执行出错
-		if (!isAbleToRun) {
-			//isExecutionSuccess = false;
-			execStatus = RUNTIMEERROR;
-			//listenerService->executionFailed(state, state.currentThread->pc);
-			cerr << "thread unable to run, Id: " << thread->threadId
-					<< " state: " << thread->threadState << endl;
-			terminateState(state);
-			break;
-			//assert(0 && "thread are unable to execute!");
-		}*/
-//    if (!thread->isRunnable()) {
-//    	if (prefix && !prefix->isFinished()) {
-//    		isExecutionSuccess = false;
-//    		for (std::vector<BitcodeListener*>::iterator bit = bitcodeListeners.begin(), bie = bitcodeListeners.end(); bit != bie; ++bit) {
-//    			(*bit)->executionFailed(state, ki);
-//    		}
-//    		terminateState(state);
-//    		updateStates(&state);
-//    		break;
-//    	} else {
-//    		cerr << "thread id: " << thread->threadId << " state: " << thread->threadState << endl;
-//    		assert(0 && "thread unrunnable");
-//    	}
-//    }
-		/*KInstruction *ki = thread->pc;
-		if (prefix && !prefix->isFinished() && ki != prefix->getCurrentInst()) {
-			//cerr << "prefix: " << prefix->getCurrentInst() << " " << prefix->getCurrentInst()->inst->getOpcodeName() << " reality: " << ki << " " << ki->inst->getOpcodeName() << endl;
-//			cerr << "thread id : " << thread->threadId << "\n";
-//			ki->inst->print(errs());
-//			cerr << endl;
-//			prefix->getCurrentInst()->inst->print(errs());
-//			cerr << endl;
-			cerr << "prefix unmatched\n";
-//			execStatus = IGNOREDERROR;
-//			terminateState(state);
-//			break;
-			prefix->finished();
-			//assert(0 && "prefix unmatched");
-		}
 
-		stepInstruction(state);
-
-		//listenerService->executeInstruction(state, ki);
-
-		executeInstruction(state, ki);
-
-		//listenerService->instructionExecuted(state, ki);
-
-		if (prefix) {
-			prefix->increase();
-		}
-		if (execStatus != SUCCESS) {
-			updateStates(&state);
-			break;
-		}*/
 		processTimers(&state, MaxInstructionTime);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3235,16 +3167,6 @@ void Executor::run(ExecutionState &initialState) {
 		}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-		/*if (state.threadScheduler->isSchedulerEmpty()) {
-			if(!state.examineAllThreadFinalState()){
-				execStatus = RUNTIMEERROR;
-			}else {
-				execStatus = SUCCESS;
-			}
-			terminateState(state);
-		}
-		updateStates(&state);*/
 	}
 
 	delete searcher;
@@ -4298,6 +4220,10 @@ unsigned Executor::executePThreadCreate(ExecutionState &state, KInstruction *ki,
 unsigned Executor::executePThreadJoin(ExecutionState &state, KInstruction *ki,
 		std::vector<ref<Expr> > &arguments) {
 	CallInst* calli = dyn_cast<CallInst>(ki->inst);
+
+	cerr << "excutePthreadJoin: " << endl;
+	ki->inst->dump();
+
 	if (calli) {
 		ConstantExpr* threadIdExpr = dyn_cast<ConstantExpr>(arguments[0].get());
 		unsigned threadId = threadIdExpr->getZExtValue();
@@ -4315,6 +4241,9 @@ unsigned Executor::executePThreadJoin(ExecutionState &state, KInstruction *ki,
 				} else {
 					ji->second.push_back(state.currentThread->threadId);
 				}
+
+				cerr << "swap thread to join , remove thread " << endl;
+
 				state.swapOutThread(state.currentThread, false, false, true,
 						false);
 				;

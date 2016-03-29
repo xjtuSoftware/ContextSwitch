@@ -27,7 +27,7 @@ uname -v = #37-Ubuntu SMP Wed Oct 21 10:23:06 UTC 2015
 /usr/bin/oslevel       = unknown
 /bin/universe          = unknown
 
-PATH: /home/w430/git/cap/Release+Asserts/bin
+PATH: /home/w430/git/cap_3/Release+Asserts/bin
 PATH: /usr/java/java1.8/bin
 PATH: /usr/java/java1.8/jre/bin
 PATH: /usr/local/sbin
