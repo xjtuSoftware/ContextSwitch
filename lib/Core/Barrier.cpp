@@ -44,6 +44,14 @@ void Barrier::setCount(unsigned count) {
 	this->count = count;
 }
 
+Barrier::Barrier(const Barrier& barrier)
+	: name(barrier.name),
+	  count(barrier.count),
+	  current(barrier.current),
+	  blockedList(barrier.blockedList){
+
+}
+
 vector<unsigned>& Barrier::getBlockedList() {
 	return blockedList;
 }

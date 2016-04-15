@@ -240,4 +240,30 @@ void GuidedCondScheduler::printAllItem(ostream &os) {
 	baseScheduler->printAllItem(os);
 }
 
+
+//add by ywh for some reason I just complete the copy of FIFS,
+CondScheduler::CondScheduler(const CondScheduler& scheduler) {
+}
+
+FIFSCondScheduler::FIFSCondScheduler(const FIFSCondScheduler& scheduler) {
+	list<WaitParam*> list = scheduler.queue;
+    std::list<WaitParam*>::iterator iterBeg, iterEnd;
+	for(iterBeg = list.begin(), iterEnd = list.end();
+			iterBeg != iterEnd; iterBeg++){
+		WaitParam* waitParamOrigin = *iterBeg;
+		WaitParam* waitParam = new WaitParam(waitParamOrigin->mutexName, waitParamOrigin->threadId);
+
+		queue.push_back(waitParam);
+	}
+}
+
+PreemptiveCondScheduler::PreemptiveCondScheduler(
+		const PreemptiveCondScheduler& scheduler) {
+}
+
+GuidedCondScheduler::GuidedCondScheduler(const GuidedCondScheduler& scheduler) {
+}
+
+
 } /* namespace klee */
+

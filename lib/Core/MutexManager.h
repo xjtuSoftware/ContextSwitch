@@ -22,6 +22,7 @@ private:
 	std::map< std::string, Mutex* > mutexPool;
 	std::map< unsigned, Mutex* > blockedThreadPool;
 	unsigned nextMutexId;
+	void initialWithMutex(const MutexManager& mutexManager);
 
 public:
 	MutexManager();
@@ -41,6 +42,8 @@ public:
 	void addBlockedThread(unsigned threadId, std::string mutexName);
 	bool tryToLockForBlockedThread(unsigned threadId, bool& isBlocked, std::string& errorMsg);
 
+	//just for test
+	std::map< unsigned, Mutex* >& getBlockedMutexPool();
 };
 
 }

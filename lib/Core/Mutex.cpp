@@ -23,12 +23,22 @@ Mutex::~Mutex() {
 	// TODO Auto-generated destructor stub
 }
 
+
+klee::Mutex::Mutex(const Mutex& mutex)
+	: id(mutex.id),
+	  name(mutex.name),
+	  isLocked(mutex.isLocked),
+	  lockedThreadId(mutex.lockedThreadId) {
+}
+
+
 void Mutex::lock(unsigned threadId) {
 	this->lockedThreadId = threadId;
 	this->isLocked = true;
 }
 
 void Mutex::unlock() {
+	cerr << "isLocke be false" << endl;
 	this->lockedThreadId = 0;
 	this->isLocked = false;
 }

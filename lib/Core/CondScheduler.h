@@ -25,6 +25,7 @@ public:
 		Random
 	};
 	CondScheduler();
+	CondScheduler(const CondScheduler& scheduler);
 	virtual ~CondScheduler();
 	virtual WaitParam* selectNextItem() = 0;
 	virtual void popAllItem(std::vector<WaitParam*>& allItem) = 0;
@@ -45,6 +46,7 @@ public:
 		os << "FIFS Condition Scheduler\n";
 	}
 	FIFSCondScheduler();
+	FIFSCondScheduler(const FIFSCondScheduler& scheduler);
 	virtual ~FIFSCondScheduler();
 	WaitParam* selectNextItem();
 	void popAllItem(std::vector<WaitParam*>& allItem);
@@ -64,6 +66,7 @@ public:
 		os << "Preemptive Condition Scheduler\n";
 	}
 	PreemptiveCondScheduler();
+	PreemptiveCondScheduler(const PreemptiveCondScheduler& scheduler);
 	virtual ~PreemptiveCondScheduler();
 	WaitParam* selectNextItem();
 	void popAllItem(std::vector<WaitParam*>& allItem);
@@ -84,6 +87,7 @@ public:
 	void printName(std::ostream &os) {
 		os << "Guided Condition Scheduler\n";
 	}
+	GuidedCondScheduler(const GuidedCondScheduler& scheduler);
 	GuidedCondScheduler(CondSchedulerType secondarySchedulerType, Prefix* prefix);
 	virtual ~GuidedCondScheduler();
 	WaitParam* selectNextItem();

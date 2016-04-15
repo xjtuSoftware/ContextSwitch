@@ -105,6 +105,9 @@ class Executor: public Interpreter {
 	friend class CondManager;
 
 public:
+	//the number of state
+	unsigned numOfStates;
+
 	class Timer {
 	public:
 		Timer();

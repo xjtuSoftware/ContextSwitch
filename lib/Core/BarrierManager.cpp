@@ -80,9 +80,14 @@ void BarrierManager::clear() {
 	barrierPool.clear();
 }
 
-BarrierManager::BarrierManager(const BarrierManager& barrierManager)  :
-		barrierPool(barrierManager.barrierPool)
-		{
+BarrierManager::BarrierManager(const BarrierManager& barrierManager) {
+	map<string, Barrier*> barrierPoolOrigin = barrierManager.barrierPool;
+
+	for(map<string, Barrier*>::iterator bi = barrierPoolOrigin.begin(),
+			be = barrierPoolOrigin.end(); bi != be; bi++){
+		Barrier* barrier = new Barrier(*(bi->second));
+		barrierPool.insert(pair<string, Barrier*>(bi->first, barrier));
+	}
 }
 
 void BarrierManager::print(ostream &out) {

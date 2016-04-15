@@ -143,13 +143,17 @@ void CondManager::print(ostream &out) {
 	}
 }
 
-CondManager::CondManager(const CondManager& condManager):
-	nextConditionId(condManager.nextConditionId),
-	condPool(condManager.condPool)
+CondManager::CondManager(const CondManager& condManager) :
+		nextConditionId(condManager.nextConditionId),
+		mutexManager(condManager.mutexManager){
+	map<string, Condition*> condPoolOrigin = condManager.condPool;
+	for (map<string, Condition*>::iterator ci = condPoolOrigin.begin(),
+			ce = condPoolOrigin.end(); ci != ce; ci++) {
 
-//have some problems
-{
-	mutexManager = new MutexManager(*condManager.mutexManager);
+		Condition* cond = new Condition(*(ci->second));
+		condPool.insert(pair<string, Condition*>(ci->first, cond));
+
+	}
 }
 
 unsigned CondManager::getNextConditionId() {

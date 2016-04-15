@@ -7,7 +7,7 @@
 
 #include "Condition.h"
 
-using namespace::std;
+using namespace ::std;
 
 namespace klee {
 
@@ -16,16 +16,24 @@ Condition::Condition() {
 
 }
 
-Condition::Condition(unsigned id, string name, CondScheduler::CondSchedulerType scheduleType)
-	: id(id),
-	  name(name){
+
+Condition::Condition(const Condition& condition) :
+	id(condition.id),
+	name(condition.name),
+	waitingList(condition.waitingList){
+
+}
+
+Condition::Condition(unsigned id, string name,
+		CondScheduler::CondSchedulerType scheduleType) :
+		id(id), name(name) {
 	waitingList = getCondSchedulerByType(scheduleType);
 	//associatedMutex == NULL;
 }
 
-Condition::Condition(unsigned id, string name, CondScheduler::CondSchedulerType schedulerType, Prefix* prefix)
-	: id(id),
-	  name(name) {
+Condition::Condition(unsigned id, string name,
+		CondScheduler::CondSchedulerType schedulerType, Prefix* prefix) :
+		id(id), name(name) {
 	waitingList = new GuidedCondScheduler(schedulerType, prefix);
 }
 
@@ -52,7 +60,8 @@ Condition::~Condition() {
 	if (!waitingList->isQueueEmpty()) {
 		vector<WaitParam*> allItem;
 		waitingList->popAllItem(allItem);
-		for (vector<WaitParam*>::iterator wi = allItem.begin(), we = allItem.end(); wi != we; wi++) {
+		for (vector<WaitParam*>::iterator wi = allItem.begin(), we =
+				allItem.end(); wi != we; wi++) {
 			delete *wi;
 		}
 	}
@@ -60,3 +69,5 @@ Condition::~Condition() {
 }
 
 }
+
+

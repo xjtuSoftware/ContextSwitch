@@ -27,6 +27,7 @@ private:
 
 public:
 	static const unsigned DEFAULTCOUNT = 0x7fffffff;
+	Barrier(const Barrier& barrier);
 	Barrier(std::string name, unsigned count);
 	virtual ~Barrier();
 	void wait(unsigned threadId);

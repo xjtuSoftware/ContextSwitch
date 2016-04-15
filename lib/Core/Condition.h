@@ -31,6 +31,8 @@ public:
 
 	Condition();
 
+	Condition(const Condition& condition);
+
 	Condition(unsigned id, std::string name, CondScheduler::CondSchedulerType schedulerType);
 
 	Condition(unsigned id, std::string name, CondScheduler::CondSchedulerType schedulerType, Prefix* prefix);

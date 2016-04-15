@@ -20,10 +20,10 @@ MutexManager::MutexManager()
 
 }
 
-MutexManager::MutexManager(const MutexManager& mutexManager) :
-	nextMutexId(mutexManager.nextMutexId),
-	mutexPool(mutexManager.mutexPool),
-	blockedThreadPool(mutexManager.blockedThreadPool){
+MutexManager::MutexManager(const MutexManager& mutexManager) {
+
+	initialWithMutex(mutexManager);
+
 }
 
 MutexManager::~MutexManager() {
@@ -45,14 +45,23 @@ bool MutexManager::lock(Mutex* mutex, unsigned threadId, bool& isBlocked, string
 	if (mutex->isMutexLocked()) {
 		//mutex->addToBlockedList(thread);
 		blockedThreadPool.insert(make_pair(threadId, mutex));
+
+		cerr << "insert blocked thread " << threadId << endl;
+
 		isBlocked = true;
 		return true;
 	} else {
 		mutex->lock(threadId);
+
+		cerr << "thread not blocked " << threadId << endl;
+
 		isBlocked = false;
 		map<unsigned, Mutex*>::iterator ti = blockedThreadPool.find(threadId);
 		if (ti != blockedThreadPool.end()) {
 			blockedThreadPool.erase(ti);
+
+			cerr << "erase++++++++" << endl;
+
 			//mutex->removeFromBlockedList(thread);
 		}
 		return true;
@@ -65,6 +74,7 @@ bool MutexManager::unlock(string mutexName, string& errorMsg) {
 		errorMsg = "mutex " + mutexName + " undefined";
 		return false;
 	} else {
+		cerr << "have unlock for " << endl;
 		return unlock(mutex, errorMsg);
 	}
 }
@@ -130,8 +140,38 @@ void MutexManager::addBlockedThread(unsigned threadId, std::string mutexName) {
 	blockedThreadPool.insert(make_pair(threadId, mutex));
 }
 
+void MutexManager::initialWithMutex(const MutexManager& mutexManager) {
+
+	nextMutexId = mutexManager.nextMutexId;
+
+	map<std::string, Mutex*> mutexPoolOrigin = mutexManager.mutexPool;
+
+	for (map<std::string, Mutex*>::iterator iterBegMutex =
+			mutexPoolOrigin.begin(), iterEndMutex =
+		    mutexPoolOrigin.end(); iterBegMutex != iterEndMutex;
+			iterBegMutex++) {
+
+		Mutex* mutex = new Mutex(*(iterBegMutex->second));
+		mutexPool.insert(std::make_pair(iterBegMutex->first, mutex));
+
+	}
+
+	map<unsigned, Mutex*> blockedThreadPoolOrigin = mutexManager.blockedThreadPool;
+
+	for (map<unsigned, Mutex*>::iterator iterBegThread =
+			blockedThreadPoolOrigin.begin(), iterEndThread =
+			blockedThreadPoolOrigin.end();
+			iterBegThread != iterEndThread; iterBegThread++) {
+
+		std::string name = iterBegThread->second->name;
+		unsigned threadId = iterBegThread->first;
+		addBlockedThread(threadId, name);
+	}
+}
+
 bool MutexManager::tryToLockForBlockedThread(unsigned threadId, bool& isBlocked, string& errorMsg) {
 	map<unsigned, Mutex*>::iterator mi = blockedThreadPool.find(threadId);
+	cerr << "the method is called" << endl;
 	if (mi == blockedThreadPool.end()) {
 		errorMsg = "thread " + Transfer::uint64toString(threadId) + " does not blocked for mutex";
 		return false;
@@ -140,7 +180,9 @@ bool MutexManager::tryToLockForBlockedThread(unsigned threadId, bool& isBlocked,
 		return lock(mutex, threadId, isBlocked, errorMsg);
 	}
 }
-
+std::map<unsigned, Mutex*>& MutexManager::getBlockedMutexPool() {
+	return blockedThreadPool;
 }
 
+}
 

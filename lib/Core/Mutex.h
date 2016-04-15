@@ -47,6 +47,8 @@ public:
 
 	Mutex(unsigned id, std::string name);
 
+	Mutex(const Mutex& mutex);
+
 	virtual ~Mutex();
 };
 

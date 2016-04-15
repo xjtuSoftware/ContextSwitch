@@ -107,6 +107,8 @@ ExecutionState::ExecutionState(KFunction *kf) :
 		//是否在上一步执行中发生非抢占性切换
 		isNonPreempt(false),
 
+		interleaveRecord(),
+
 		//发生抢占性切换次数
 		ncs(0)
 //ptreeNode(0)
@@ -146,6 +148,7 @@ ExecutionState::ExecutionState(KFunction *kf, Prefix* prefix)
 	//是否在上一步执行中发生非抢占性切换
 	isNonPreempt(false),
 
+	interleaveRecord(),
 	//发生抢占性切换次数
 	ncs(0)
 //ptreeNode(0)
@@ -214,13 +217,16 @@ ExecutionState::ExecutionState(const ExecutionState& state)
 	//是否在上一步执行中发生非抢占性切换
 	isNonPreempt(state.isNonPreempt),
 
+
+	//add by ywh
+
+	mutexManager(state.mutexManager),
+	joinRecord(state.joinRecord),
 	//发生抢占性切换次数
 	ncs(state.ncs),
-	//add by ywh
-	joinRecord(state.joinRecord),
-	mutexManager(state.mutexManager),
 	condManager(state.condManager),
-	barrierManager(state.barrierManager)
+	barrierManager(state.barrierManager),
+	interleaveRecord(state.interleaveRecord)
 //    incomingBBIndex(state.incomingBBIndex),
 //    threadId(state.threadId),
 //    parentThread(NULL),
@@ -535,6 +541,10 @@ Thread* ExecutionState::createThread(KFunction *kf, unsigned threadId) {
 }
 
 void ExecutionState::swapOutThread(Thread* thread, bool isCondBlocked, bool isBarrierBlocked, bool isJoinBlocked, bool isTerminated) {
+
+	//changed in this , maybe will have some mistake;
+	this->isNonPreempt = true;
+
 	threadScheduler->removeItem(thread);
 	if (isCondBlocked) {
 		thread->threadState = Thread::COND_BLOCKED;

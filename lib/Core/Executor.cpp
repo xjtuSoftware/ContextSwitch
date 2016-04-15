@@ -244,6 +244,8 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 		/*mutexManager(),
 		condManager(),*/
 
+		numOfStates(0),
+
 		isFinished(false),
 		isPrefixFinished(false),
 		prefix(NULL),
@@ -2931,12 +2933,12 @@ void Executor::run(ExecutionState &initialState) {
 
 	while (!states.empty() && !haltExecution) {
 
-		cerr << "------------------------------> states " << states.size()
-				<< endl;
+		/*cerr << "------------------------------> states " << states.size()
+				<< endl;*/
 
 		ExecutionState &state = searcher->selectState();
 
-		//cerr << "the address of state--------------->" << &state << endl;
+		cerr << "the address of state--------------->" << &state << endl;
 
 		Thread* thread = state.getNextThread();
 
@@ -2965,6 +2967,12 @@ void Executor::run(ExecutionState &initialState) {
 		}
 
 		KInstruction *ki = thread->pc;
+
+//////////////////////////////////////////////////////////////
+		const InstructionInfo *info = ki->info;
+		state.interleaveRecord.insert(pair<unsigned, unsigned>(thread->threadId, info->line));
+//////////////////////////////////////////////////////////////
+
 		stepInstruction(state);
 
 		//listenerService->executeInstruction(state, ki);
@@ -2997,14 +3005,17 @@ void Executor::run(ExecutionState &initialState) {
 
 		secondLpTimes = 0;
 
+		//当执行完时，重新获取thread的值。
 		thread = state.getNextThread();
 		Thread* originThread = thread;
+
+		//ExecutionState* stateOrigin = new ExecutionState(state);
 
 		for (int i = 0; i < state.threadScheduler->itemNum(); i++) {
 
 //////////////Test///////////////////////////////////////////////////////////////////////
-			cerr << "threadNum+++++++++++++++++++++++++++++>" << ++secondLpTimes
-					<< "+++++++++++++++++++++++++++++"<< endl;
+			/*cerr << "threadNum+++++++++++++++++++++++++++++>" << ++secondLpTimes
+					<< "+++++++++++++++++++++++++++++"<< endl;*/
 //////////////////////////////////////////////////////////////////////////////////////////
 			if(!contextSwitch){
 				break;
@@ -3012,31 +3023,39 @@ void Executor::run(ExecutionState &initialState) {
 
 			ExecutionState *newState = 0;
 
-			cerr << "state Id---------------------------->" << &state << endl;
+			/*cerr << "state Id---------------------------->" << &state << endl;*/
 
 			//如果线程切换次数大于2执行过一次后就不在进行切换。
 			if(state.ncs >= 2){
 
-				cerr << "no context switch" << endl;
-				cerr << "state current thread state" << endl;
-
+				/*cerr << "no context switch" << endl;
+				cerr << "state current thread state" << endl;*/
 				newState = &state;
 				contextSwitch = false;
 			} else {
 
 				newState = new ExecutionState(state);
+
+				numOfStates++;
+
 				state.reSchedule();
 
-				cerr << "threadOriginId***************************>" << thread << endl;
+				/*cerr << "threadOriginId***************************>" << thread << endl;*/
 				thread = state.getNextThread();
 
-				cerr << "threadId********************************>" << thread << endl;
+				/*cerr << "threadId********************************>" << thread << endl;*/
 
 				newState->threadScheduler->moveItemFront(thread);
 
 				if (thread != originThread && !state.isNonPreempt) {
 					newState->ncs++;
-					cerr << "------------------------context switch------------------------" << endl;
+					/*cerr << "------------------------context switch------------------------" << endl;*/
+				}
+
+				//只需更改一次即可。
+				if(state.isNonPreempt){
+					state.isNonPreempt = false;
+					newState->isNonPreempt = false;
 				}
 
 				addedStates.insert(newState);
@@ -3044,17 +3063,22 @@ void Executor::run(ExecutionState &initialState) {
 				if(!originStateRemoved){
 					removedStates.insert(&state);
 
-					cerr << "removeStatesNum--------------->" << removedStates.size() << endl;
-					cerr << "states---------------------->" << states.size() << endl;
+					/*cerr << "removeStatesNum--------------->" << removedStates.size() << endl;
+					cerr << "states---------------------->" << states.size() << endl;*/
 
 					originStateRemoved = true;
 				}
 
-
 			}
 
-
 			cerr << "threadId---------------------------------->" << thread->threadId << endl;
+
+			std::map<unsigned, Mutex*> blockedThreadOrigin1 = state.mutexManager.getBlockedMutexPool();
+			std::map<unsigned, Mutex*> blockedThread1 = newState->mutexManager.getBlockedMutexPool();
+			if (blockedThreadOrigin1.size() != 0) {
+				cerr << "erorororor1 :" << blockedThreadOrigin1.size() << endl;
+				cerr << blockedThread1.size() << endl;
+			}
 
 			switch (thread->threadState) {
 			case Thread::RUNNABLE: {
@@ -3069,9 +3093,10 @@ void Executor::run(ExecutionState &initialState) {
 					string errorMsg;
 					bool isBlocked;
 
-					//TODO:mutexManager => state.mutexManager
-					if (state.mutexManager.tryToLockForBlockedThread(
+					//TODO:mutexManager => state.mutexManager=>newState.mutexManager
+					if (newState->mutexManager.tryToLockForBlockedThread(
 							thread->threadId, isBlocked, errorMsg)) {
+
 						if (isBlocked) {
 
 							newState->isNonPreempt = true;
@@ -3091,25 +3116,47 @@ void Executor::run(ExecutionState &initialState) {
 								}
 							}
 						} else {
-							//state.switchThreadToRunnable(thread);
 							newState->switchThreadToRunnable(
 									newState->threadScheduler->getThreadByID(
 											thread->threadId));
 						}
 					} else {
+						std::map<unsigned, Mutex*> blockedThreadOrigin = state.mutexManager.getBlockedMutexPool();
+						std::map<unsigned, Mutex*> blockedThread = newState->mutexManager.getBlockedMutexPool();
+						cerr << "state mutexPool " << blockedThreadOrigin.size() << endl;
+						cerr << "state mutexPool " << blockedThread.size() << endl;
+						map<unsigned, Mutex*>::iterator mi = blockedThread.find(2);
+						map<unsigned, Mutex*>::iterator miO = blockedThreadOrigin.find(2);
+
+						if(mi == blockedThread.end()){
+							cerr << "blockedThread don't have thread2 ";
+						}
+
+						if (miO == blockedThread.end()) {
+							cerr << "blockedThreadOrigin don't have thread2 ";
+						}
+
 						cerr << errorMsg << endl;
 						assert(0 && "try to get lock but failed");
 					}
-				} while (!thread->isRunnable());
+				} while (!(newState->threadScheduler->getThreadByID(
+						thread->threadId)->isRunnable()));
 
 				break;
 			}
 
 			default: {
-				//cerr << "thread state=============================>" << thread->threadState << endl;
+				cerr << "thread state=============================>" << thread->threadState << endl;
 				newState->isAbleToRun = false;
 			}
 
+			}
+
+			std::map<unsigned, Mutex*> blockedThreadOrigin = state.mutexManager.getBlockedMutexPool();
+			std::map<unsigned, Mutex*> blockedThread = newState->mutexManager.getBlockedMutexPool();
+			if(blockedThreadOrigin.size() != 0){
+				 cerr << "erororororo2 :" << blockedThreadOrigin.size()<<endl;
+				 cerr << blockedThread.size() << endl;
 			}
 		}
 
@@ -3334,6 +3381,19 @@ const InstructionInfo & Executor::getLastNonKleeInternalInstruction(
 void Executor::terminateStateOnError(ExecutionState &state,
 		const llvm::Twine &messaget, const char *suffix,
 		const llvm::Twine &info) {
+
+	//add by ywh to product the interleave of thread
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	map<unsigned, unsigned>::iterator iter;
+
+	for(iter = state.interleaveRecord.begin(); iter != state.interleaveRecord.end(); iter++){
+		cerr << "threadId " << iter->first
+				<< " code line " << iter->second <<endl;
+	}
+
+	cerr << "the number of states" << numOfStates << endl;
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	std::string message = messaget.str();
 	static std::set<std::pair<Instruction*, std::string> > emittedErrors;
 	Instruction * lastInst;
@@ -4221,8 +4281,8 @@ unsigned Executor::executePThreadJoin(ExecutionState &state, KInstruction *ki,
 		std::vector<ref<Expr> > &arguments) {
 	CallInst* calli = dyn_cast<CallInst>(ki->inst);
 
-	cerr << "excutePthreadJoin: " << endl;
-	ki->inst->dump();
+	/*cerr << "excutePthreadJoin: " << endl;
+	ki->inst->dump();*/
 
 	if (calli) {
 		ConstantExpr* threadIdExpr = dyn_cast<ConstantExpr>(arguments[0].get());
@@ -4242,7 +4302,7 @@ unsigned Executor::executePThreadJoin(ExecutionState &state, KInstruction *ki,
 					ji->second.push_back(state.currentThread->threadId);
 				}
 
-				cerr << "swap thread to join , remove thread " << endl;
+				/*cerr << "swap thread to join , remove thread " << endl;*/
 
 				state.swapOutThread(state.currentThread, false, false, true,
 						false);
@@ -4359,6 +4419,7 @@ unsigned Executor::executePThreadMutexLock(ExecutionState &state,
 				isBlocked, errorMsg);
 		if (isSuccess) {
 			if (isBlocked) {
+				cerr << "Thread blocked" << state.currentThread->threadId << endl;
 				state.switchThreadToMutexBlocked(state.currentThread);
 			}
 		} else {
