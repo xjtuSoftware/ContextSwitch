@@ -33,12 +33,13 @@ klee::Mutex::Mutex(const Mutex& mutex)
 
 
 void Mutex::lock(unsigned threadId) {
+	//cerr << "lock the threadId" << threadId << endl;
 	this->lockedThreadId = threadId;
 	this->isLocked = true;
 }
 
 void Mutex::unlock() {
-	cerr << "isLocke be false" << endl;
+	cerr << "the threadId unlock " << lockedThreadId <<endl;
 	this->lockedThreadId = 0;
 	this->isLocked = false;
 }
@@ -47,6 +48,8 @@ bool Mutex::isThreadOwnMutex(unsigned threadId) {
 	if (threadId == lockedThreadId) {
 		return true;
 	} else {
+		cerr << "the lockedThreadId" << lockedThreadId << endl;
+		cerr << "the mutex islocked" << isLocked << endl;
 		return false;
 	}
 }

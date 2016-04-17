@@ -203,7 +203,7 @@ cl::opt<unsigned> MaxDepth("max-depth",
 cl::opt<unsigned> MaxMemory("max-memory",
 		cl::desc(
 				"Refuse to fork when above this amount of memory (in MB, default=2000)"),
-		cl::init(8000));
+		cl::init(16000));
 
 cl::opt<bool> MaxMemoryInhibit("max-memory-inhibit",
 		cl::desc(
@@ -2938,13 +2938,13 @@ void Executor::run(ExecutionState &initialState) {
 
 		ExecutionState &state = searcher->selectState();
 
-		cerr << "the address of state--------------->" << &state << endl;
+		//cerr << "the address of state--------------->" << &state << endl;
 
 		Thread* thread = state.getNextThread();
 
 /////////////Test////////////////////////////////////////////////////////////////
 		firstLpTimes++;
-		cerr << "states excute num:" << firstLpTimes << endl;
+		cerr << "states excute num:" << state.stateId << endl;
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -2968,6 +2968,8 @@ void Executor::run(ExecutionState &initialState) {
 
 		KInstruction *ki = thread->pc;
 
+		/*cerr << ki->info->line;
+		ki->inst->dump();*/
 //////////////////////////////////////////////////////////////
 		const InstructionInfo *info = ki->info;
 		state.interleaveRecord.insert(pair<unsigned, unsigned>(thread->threadId, info->line));
@@ -3023,13 +3025,10 @@ void Executor::run(ExecutionState &initialState) {
 
 			ExecutionState *newState = 0;
 
-			/*cerr << "state Id---------------------------->" << &state << endl;*/
+			/*cerr << "thread Id---------------------------->" << thread->threadId << endl;*/
 
 			//如果线程切换次数大于2执行过一次后就不在进行切换。
 			if(state.ncs >= 2){
-
-				/*cerr << "no context switch" << endl;
-				cerr << "state current thread state" << endl;*/
 				newState = &state;
 				contextSwitch = false;
 			} else {
@@ -3037,19 +3036,23 @@ void Executor::run(ExecutionState &initialState) {
 				newState = new ExecutionState(state);
 
 				numOfStates++;
+				newState->stateId = numOfStates;
+
+				if(numOfStates >= 60000){
+					assert(0 && "there is no bug in 60000 states");
+				}
 
 				state.reSchedule();
 
 				/*cerr << "threadOriginId***************************>" << thread << endl;*/
 				thread = state.getNextThread();
 
-				/*cerr << "threadId********************************>" << thread << endl;*/
-
 				newState->threadScheduler->moveItemFront(thread);
 
 				if (thread != originThread && !state.isNonPreempt) {
 					newState->ncs++;
-					/*cerr << "------------------------context switch------------------------" << endl;*/
+				}else{
+					newState->stateId = state.stateId;
 				}
 
 				//只需更改一次即可。
@@ -3063,36 +3066,27 @@ void Executor::run(ExecutionState &initialState) {
 				if(!originStateRemoved){
 					removedStates.insert(&state);
 
-					/*cerr << "removeStatesNum--------------->" << removedStates.size() << endl;
-					cerr << "states---------------------->" << states.size() << endl;*/
-
 					originStateRemoved = true;
 				}
 
 			}
 
-			cerr << "threadId---------------------------------->" << thread->threadId << endl;
-
-			std::map<unsigned, Mutex*> blockedThreadOrigin1 = state.mutexManager.getBlockedMutexPool();
-			std::map<unsigned, Mutex*> blockedThread1 = newState->mutexManager.getBlockedMutexPool();
-			if (blockedThreadOrigin1.size() != 0) {
-				cerr << "erorororor1 :" << blockedThreadOrigin1.size() << endl;
-				cerr << blockedThread1.size() << endl;
-			}
-
 			switch (thread->threadState) {
 			case Thread::RUNNABLE: {
+				/*cerr << "Runable" << endl;*/
 				break;
 			}
 
 			case Thread::MUTEX_BLOCKED: {
 				//死锁检测可以完善
+				/*cerr << "Mutex_blocked" << endl;*/
 				Thread* origin = thread;
 				bool deadlock = false;
 				do {
 					string errorMsg;
 					bool isBlocked;
 
+					cerr << "before tryToLock" << endl;
 					//TODO:mutexManager => state.mutexManager=>newState.mutexManager
 					if (newState->mutexManager.tryToLockForBlockedThread(
 							thread->threadId, isBlocked, errorMsg)) {
@@ -3121,20 +3115,6 @@ void Executor::run(ExecutionState &initialState) {
 											thread->threadId));
 						}
 					} else {
-						std::map<unsigned, Mutex*> blockedThreadOrigin = state.mutexManager.getBlockedMutexPool();
-						std::map<unsigned, Mutex*> blockedThread = newState->mutexManager.getBlockedMutexPool();
-						cerr << "state mutexPool " << blockedThreadOrigin.size() << endl;
-						cerr << "state mutexPool " << blockedThread.size() << endl;
-						map<unsigned, Mutex*>::iterator mi = blockedThread.find(2);
-						map<unsigned, Mutex*>::iterator miO = blockedThreadOrigin.find(2);
-
-						if(mi == blockedThread.end()){
-							cerr << "blockedThread don't have thread2 ";
-						}
-
-						if (miO == blockedThread.end()) {
-							cerr << "blockedThreadOrigin don't have thread2 ";
-						}
 
 						cerr << errorMsg << endl;
 						assert(0 && "try to get lock but failed");
@@ -3152,12 +3132,6 @@ void Executor::run(ExecutionState &initialState) {
 
 			}
 
-			std::map<unsigned, Mutex*> blockedThreadOrigin = state.mutexManager.getBlockedMutexPool();
-			std::map<unsigned, Mutex*> blockedThread = newState->mutexManager.getBlockedMutexPool();
-			if(blockedThreadOrigin.size() != 0){
-				 cerr << "erororororo2 :" << blockedThreadOrigin.size()<<endl;
-				 cerr << blockedThread.size() << endl;
-			}
 		}
 
 		updateStates(&state);
@@ -3166,6 +3140,7 @@ void Executor::run(ExecutionState &initialState) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		if (MaxMemory) {
+			//cerr << "the num of state " << numOfStates << endl;
 			if ((stats::instructions & 0xFFFF) == 0) {
 				// We need to avoid calling GetMallocUsage() often because it
 				// is O(elts on freelist). This is really bad since we start
@@ -4408,6 +4383,7 @@ unsigned Executor::executePThreadMutexLock(ExecutionState &state,
 		KInstruction *ki, std::vector<ref<Expr> > &arguments) {
 	ref<Expr> address = arguments[0];
 	ConstantExpr* mutexAddress = dyn_cast<ConstantExpr>(address.get());
+	/*cerr << " PthreadMutexLock" << endl;*/
 	//cerr << " lock param : " << mutexAddress->getZExtValue();
 	if (mutexAddress) {
 		string key = Transfer::uint64toString(mutexAddress->getZExtValue());
@@ -4419,7 +4395,7 @@ unsigned Executor::executePThreadMutexLock(ExecutionState &state,
 				isBlocked, errorMsg);
 		if (isSuccess) {
 			if (isBlocked) {
-				cerr << "Thread blocked" << state.currentThread->threadId << endl;
+				//cerr << "Thread blocked" << state.currentThread->threadId << endl;
 				state.switchThreadToMutexBlocked(state.currentThread);
 			}
 		} else {

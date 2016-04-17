@@ -27,10 +27,12 @@ bool CondManager::wait(string condName, string mutexName, unsigned threadId, str
 		errorMsg = "condition " + condName + " undefined";
 		return false;
 	}
+
 	if (!mutex->isThreadOwnMutex(threadId)) {
 		errorMsg = Transfer::uint64toString(threadId) + " does not own mutex " + mutexName;
 		return false;
 	} else {
+
 		WaitParam* wp = new WaitParam(mutexName, threadId);
 		cond->wait(wp);
 		return mutexManager->unlock(mutexName, errorMsg);
@@ -143,9 +145,27 @@ void CondManager::print(ostream &out) {
 	}
 }
 
+CondManager::CondManager(const CondManager& condManager, MutexManager* mutexManager) :
+		nextConditionId(condManager.nextConditionId),
+		mutexManager(condManager.mutexManager){
+	//cerr << "condManager called " << endl;
+	this->mutexManager = mutexManager;
+
+	map<string, Condition*> condPoolOrigin = condManager.condPool;
+	for (map<string, Condition*>::iterator ci = condPoolOrigin.begin(),
+			ce = condPoolOrigin.end(); ci != ce; ci++) {
+
+		Condition* cond = new Condition(*(ci->second));
+		condPool.insert(pair<string, Condition*>(ci->first, cond));
+
+	}
+}
 CondManager::CondManager(const CondManager& condManager) :
 		nextConditionId(condManager.nextConditionId),
 		mutexManager(condManager.mutexManager){
+	//cerr << "condManager called " << endl;
+	//this->mutexManager = mutexManager;
+
 	map<string, Condition*> condPoolOrigin = condManager.condPool;
 	for (map<string, Condition*>::iterator ci = condPoolOrigin.begin(),
 			ce = condPoolOrigin.end(); ci != ce; ci++) {

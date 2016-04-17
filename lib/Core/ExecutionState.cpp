@@ -107,6 +107,9 @@ ExecutionState::ExecutionState(KFunction *kf) :
 		//是否在上一步执行中发生非抢占性切换
 		isNonPreempt(false),
 
+		//初始化Id
+		stateId(0),
+
 		interleaveRecord(),
 
 		//发生抢占性切换次数
@@ -220,11 +223,16 @@ ExecutionState::ExecutionState(const ExecutionState& state)
 
 	//add by ywh
 
+	//stateId++
+	stateId(state.stateId),
+
 	mutexManager(state.mutexManager),
+
+	/*//need change
+	condManager(state.condManager),*/
 	joinRecord(state.joinRecord),
 	//发生抢占性切换次数
 	ncs(state.ncs),
-	condManager(state.condManager),
 	barrierManager(state.barrierManager),
 	interleaveRecord(state.interleaveRecord)
 //    incomingBBIndex(state.incomingBBIndex),
@@ -232,6 +240,8 @@ ExecutionState::ExecutionState(const ExecutionState& state)
 //    parentThread(NULL),
 //    threadState(state.threadState)
 {
+  CondManager* condManagerOrigin = new CondManager(state.condManager, &(this->mutexManager));
+  condManager = *condManagerOrigin;
   for (unsigned int i=0; i<symbolics.size(); i++)
     symbolics[i].first->refCount++;
 
@@ -572,6 +582,7 @@ void ExecutionState::swapInThread(Thread* thread, bool isRunnable, bool isMutexB
 
 void ExecutionState::switchThreadToMutexBlocked(Thread* thread) {
 	assert(thread->isRunnable());
+	std::cerr << "Thread MUTEX_BLOCKED" << std::endl ;
 	thread->threadState = Thread::MUTEX_BLOCKED;
 }
 

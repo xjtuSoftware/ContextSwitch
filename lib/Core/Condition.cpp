@@ -18,15 +18,22 @@ Condition::Condition() {
 
 
 Condition::Condition(const Condition& condition) :
-	id(condition.id),
-	name(condition.name),
-	waitingList(condition.waitingList){
 
+	id(condition.id),
+	name(condition.name){
+
+	FIFSCondScheduler* FIFScondScheduler =
+			static_cast<FIFSCondScheduler*>(condition.waitingList);
+	assert(FIFScondScheduler && "during copy the conditionScheduler is not FIFS");
+
+	this->waitingList = new FIFSCondScheduler(*(FIFScondScheduler));
+	//cerr << "have called the copy of Condition" << endl;
 }
 
 Condition::Condition(unsigned id, string name,
 		CondScheduler::CondSchedulerType scheduleType) :
 		id(id), name(name) {
+	cerr << "create Condition type: " << scheduleType << endl;
 	waitingList = getCondSchedulerByType(scheduleType);
 	//associatedMutex == NULL;
 }

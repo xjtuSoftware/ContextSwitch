@@ -243,13 +243,16 @@ void GuidedCondScheduler::printAllItem(ostream &os) {
 
 //add by ywh for some reason I just complete the copy of FIFS,
 CondScheduler::CondScheduler(const CondScheduler& scheduler) {
+	cerr << "wrong called" << endl;
 }
 
 FIFSCondScheduler::FIFSCondScheduler(const FIFSCondScheduler& scheduler) {
 	list<WaitParam*> list = scheduler.queue;
     std::list<WaitParam*>::iterator iterBeg, iterEnd;
+    //cerr << "have called FIFS" << endl;
 	for(iterBeg = list.begin(), iterEnd = list.end();
 			iterBeg != iterEnd; iterBeg++){
+
 		WaitParam* waitParamOrigin = *iterBeg;
 		WaitParam* waitParam = new WaitParam(waitParamOrigin->mutexName, waitParamOrigin->threadId);
 
@@ -259,9 +262,11 @@ FIFSCondScheduler::FIFSCondScheduler(const FIFSCondScheduler& scheduler) {
 
 PreemptiveCondScheduler::PreemptiveCondScheduler(
 		const PreemptiveCondScheduler& scheduler) {
+	cerr << "wrong called" << endl;
 }
 
 GuidedCondScheduler::GuidedCondScheduler(const GuidedCondScheduler& scheduler) {
+	cerr << "wrong called" << endl;
 }
 
 

@@ -31,7 +31,8 @@ public:
 	CondManager(MutexManager* mutexManaget);
 
 	//add by ywh
-	CondManager(const CondManager& condManager);
+	CondManager(const CondManager& condManger);
+	CondManager(const CondManager& condManager, MutexManager* mutexManager);
 	virtual ~CondManager();
 	bool wait(std::string condName, std::string mutexName, unsigned threadId, std::string& errorMsg);
 	bool signal(std::string condName, unsigned& releasedThreadId, std::string& errorMsg);
