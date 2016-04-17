@@ -2944,7 +2944,7 @@ void Executor::run(ExecutionState &initialState) {
 
 /////////////Test////////////////////////////////////////////////////////////////
 		firstLpTimes++;
-		cerr << "states excute num:" << state.stateId << endl;
+		//cerr << "states excute num:" << state.stateId << endl;
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -3086,7 +3086,6 @@ void Executor::run(ExecutionState &initialState) {
 					string errorMsg;
 					bool isBlocked;
 
-					cerr << "before tryToLock" << endl;
 					//TODO:mutexManager => state.mutexManager=>newState.mutexManager
 					if (newState->mutexManager.tryToLockForBlockedThread(
 							thread->threadId, isBlocked, errorMsg)) {

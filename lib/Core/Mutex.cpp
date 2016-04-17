@@ -39,7 +39,7 @@ void Mutex::lock(unsigned threadId) {
 }
 
 void Mutex::unlock() {
-	cerr << "the threadId unlock " << lockedThreadId <<endl;
+	//cerr << "the threadId unlock " << lockedThreadId <<endl;
 	this->lockedThreadId = 0;
 	this->isLocked = false;
 }
@@ -48,8 +48,6 @@ bool Mutex::isThreadOwnMutex(unsigned threadId) {
 	if (threadId == lockedThreadId) {
 		return true;
 	} else {
-		cerr << "the lockedThreadId" << lockedThreadId << endl;
-		cerr << "the mutex islocked" << isLocked << endl;
 		return false;
 	}
 }

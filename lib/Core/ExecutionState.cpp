@@ -582,7 +582,7 @@ void ExecutionState::swapInThread(Thread* thread, bool isRunnable, bool isMutexB
 
 void ExecutionState::switchThreadToMutexBlocked(Thread* thread) {
 	assert(thread->isRunnable());
-	std::cerr << "Thread MUTEX_BLOCKED" << std::endl ;
+	//std::cerr << "Thread MUTEX_BLOCKED" << std::endl ;
 	thread->threadState = Thread::MUTEX_BLOCKED;
 }
 
