@@ -1480,8 +1480,7 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 	//judge the load/store is global
-	loadIsGlobal = false;
-	storeIsGlobal = false;
+	canContextSwitch = false;
 
 	Instruction *i = ki->inst;
 	Thread* thread = state.currentThread;
@@ -1717,6 +1716,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 
 	case Instruction::Invoke:
 	case Instruction::Call: {
+		canContextSwitch = true;
 		CallSite cs(i);
 
 		unsigned numArgs = cs.arg_size();
@@ -2096,11 +2096,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 					if (isGlobalMO(mo)) {
 						/*cerr << "load global" << endl;
 						ki->inst->dump();*/
-						loadIsGlobal = true;
+						canContextSwitch = true;
 					} else {
-						cerr << "load local" << endl;
 						//ki->inst->dump();
-						loadIsGlobal = false;
+						canContextSwitch = false;
 					}
 				}
 			}
@@ -2126,13 +2125,12 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 			if (success) {
 				const MemoryObject* mo = op.first;
 				if (isGlobalMO(mo)) {
-					cerr << "global" << endl;
 					//ki->inst->dump();
-					storeIsGlobal = true;
+					canContextSwitch = true;
 				} else {
 					/*cerr << "local" << endl;
 					ki->inst->dump();*/
-					storeIsGlobal = false;
+					canContextSwitch = false;
 				}
 			}
 		}
@@ -3080,7 +3078,7 @@ void Executor::run(ExecutionState &initialState) {
 			/*cerr << "thread Id---------------------------->" << thread->threadId << endl;*/
 
 			//如果线程切换次数大于2执行过一次后就不在进行切换。或者load/store均为局部变量
-			if(state.ncs >= 2 /*|| (!loadIsGlobal && !storeIsGlobal) || 1*/){
+			if(state.ncs >= 2 || !canContextSwitch){
 				newState = &state;
 				contextSwitch = false;
 				cerr << "no contextSwitch" << endl;

@@ -108,9 +108,8 @@ public:
 	//the number of state
 	unsigned numOfStates;
 
-	//judge the Load/store the global
-	bool loadIsGlobal;
-	bool storeIsGlobal;
+	//contextSwitch if the Load/store the global, and the mutexunlock
+	bool canContextSwitch;
 
 	class Timer {
 	public:
