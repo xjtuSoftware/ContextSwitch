@@ -108,6 +108,10 @@ public:
 	//the number of state
 	unsigned numOfStates;
 
+	//judge the Load/store the global
+	bool loadIsGlobal;
+	bool storeIsGlobal;
+
 	class Timer {
 	public:
 		Timer();
@@ -564,6 +568,8 @@ public:
 	void printInstrcution(ExecutionState &state, KInstruction* ki);
 
 	void printPrefix();
+
+	void isGlobal();
 };
 
 } // End klee namespace

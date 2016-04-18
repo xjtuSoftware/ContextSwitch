@@ -1479,6 +1479,10 @@ static inline const llvm::fltSemantics * fpWidthToSemantics(unsigned width) {
 }
 
 void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
+	//judge the load/store is global
+	loadIsGlobal = false;
+	storeIsGlobal = false;
+
 	Instruction *i = ki->inst;
 	Thread* thread = state.currentThread;
 //	cerr << "thread id : " << thread->threadId << " ";
@@ -2078,8 +2082,34 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 	case Instruction::Load: {
 
 		ref<Expr> base = eval(ki, 0, thread).value;
-//		std::cerr<<"base : "<<base<<std::endl;
+
+		LoadInst* li = dyn_cast<LoadInst>(ki->inst);
+		if (!(li->getPointerOperand()->getName().equals("stdout"))
+				&& (li->getPointerOperand()->getName().equals("stderr"))) {
+
+			ConstantExpr* realAddress = dyn_cast<ConstantExpr>(base.get());
+			if (realAddress) {
+				ObjectPair op;
+				bool success = getMemoryObject(op, state, base);
+				if (success) {
+					const MemoryObject *mo = op.first;
+					if (isGlobalMO(mo)) {
+						cerr << "load global" << endl;
+						ki->inst->dump();
+						loadIsGlobal = true;
+					} else {
+						cerr << "load local" << endl;
+						//ki->inst->dump();
+						loadIsGlobal = false;
+					}
+				} else {
+					assert(0 && "load address is not const");
+				}
+			}
+		}
+
 		executeMemoryOperation(state, false, base, 0, ki);
+//		std::cerr<<"base : "<<base<<std::endl;
 		break;
 	}
 
@@ -2089,6 +2119,28 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 //		std::cerr<<"base : "<<base<<std::endl;
 //    base->dump();
 		ref<Expr> value = eval(ki, 0, thread).value;
+		ConstantExpr* realAddress = dyn_cast<ConstantExpr>(base.get());
+
+		if (realAddress) {
+
+			ObjectPair op;
+			bool success = getMemoryObject(op, state, base);
+			if (success) {
+				const MemoryObject* mo = op.first;
+				if (isGlobalMO(mo)) {
+					cerr << "global" << endl;
+					//ki->inst->dump();
+					storeIsGlobal = true;
+				} else {
+					cerr << "local" << endl;
+					ki->inst->dump();
+					storeIsGlobal = false;
+				}
+			} else {
+				ki->inst->dump();
+				assert(0 && "store address is not const");
+			}
+		}
 //		std::cerr<<"value : "<<value<<std::endl;
 		executeMemoryOperation(state, true, base, value, 0);
 		//handle mutex and condition created by malloc
@@ -3011,6 +3063,9 @@ void Executor::run(ExecutionState &initialState) {
 		thread = state.getNextThread();
 		Thread* originThread = thread;
 
+		cerr << "the load is global" << loadIsGlobal << endl;
+		cerr << "the store is global" << storeIsGlobal << endl;
+
 		//ExecutionState* stateOrigin = new ExecutionState(state);
 
 		for (int i = 0; i < state.threadScheduler->itemNum(); i++) {
@@ -3027,10 +3082,11 @@ void Executor::run(ExecutionState &initialState) {
 
 			/*cerr << "thread Id---------------------------->" << thread->threadId << endl;*/
 
-			//如果线程切换次数大于2执行过一次后就不在进行切换。
-			if(state.ncs >= 2){
+			//如果线程切换次数大于2执行过一次后就不在进行切换。或者load/store均为局部变量
+			if(state.ncs >= 2 /*|| (!loadIsGlobal && !storeIsGlobal)*/){
 				newState = &state;
 				contextSwitch = false;
+				cerr << "no contextSwitch" << endl;
 			} else {
 
 				newState = new ExecutionState(state);
@@ -3039,7 +3095,7 @@ void Executor::run(ExecutionState &initialState) {
 				newState->stateId = numOfStates;
 
 				if(numOfStates >= 60000){
-					assert(0 && "there is no bug in 60000 states");
+					assert(0 && "there is no bug in 60000");
 				}
 
 				state.reSchedule();
@@ -4837,3 +4893,4 @@ void Executor::printPrefix() {
 		//prefix->print(cerr);
 	}
 }
+
