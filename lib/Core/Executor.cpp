@@ -2094,16 +2094,14 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 				if (success) {
 					const MemoryObject *mo = op.first;
 					if (isGlobalMO(mo)) {
-						cerr << "load global" << endl;
-						ki->inst->dump();
+						/*cerr << "load global" << endl;
+						ki->inst->dump();*/
 						loadIsGlobal = true;
 					} else {
 						cerr << "load local" << endl;
 						//ki->inst->dump();
 						loadIsGlobal = false;
 					}
-				} else {
-					assert(0 && "load address is not const");
 				}
 			}
 		}
@@ -2132,13 +2130,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
 					//ki->inst->dump();
 					storeIsGlobal = true;
 				} else {
-					cerr << "local" << endl;
-					ki->inst->dump();
+					/*cerr << "local" << endl;
+					ki->inst->dump();*/
 					storeIsGlobal = false;
 				}
-			} else {
-				ki->inst->dump();
-				assert(0 && "store address is not const");
 			}
 		}
 //		std::cerr<<"value : "<<value<<std::endl;
@@ -2996,7 +2991,7 @@ void Executor::run(ExecutionState &initialState) {
 
 /////////////Test////////////////////////////////////////////////////////////////
 		firstLpTimes++;
-		//cerr << "states excute num:" << state.stateId << endl;
+		cerr << "states excute num:" << state.stateId << endl;
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -3035,6 +3030,8 @@ void Executor::run(ExecutionState &initialState) {
 
 		//listenerService->instructionExecuted(state, ki);
 
+		ki->inst->dump();
+
 		if (execStatus != SUCCESS) {
 
 			cerr << "------------------------> exeStatus failed" << endl;
@@ -3063,8 +3060,8 @@ void Executor::run(ExecutionState &initialState) {
 		thread = state.getNextThread();
 		Thread* originThread = thread;
 
-		cerr << "the load is global" << loadIsGlobal << endl;
-		cerr << "the store is global" << storeIsGlobal << endl;
+		/*cerr << "the load is global" << loadIsGlobal << endl;
+		cerr << "the store is global" << storeIsGlobal << endl;*/
 
 		//ExecutionState* stateOrigin = new ExecutionState(state);
 
@@ -3083,7 +3080,7 @@ void Executor::run(ExecutionState &initialState) {
 			/*cerr << "thread Id---------------------------->" << thread->threadId << endl;*/
 
 			//如果线程切换次数大于2执行过一次后就不在进行切换。或者load/store均为局部变量
-			if(state.ncs >= 2 /*|| (!loadIsGlobal && !storeIsGlobal)*/){
+			if(state.ncs >= 2 /*|| (!loadIsGlobal && !storeIsGlobal) || 1*/){
 				newState = &state;
 				contextSwitch = false;
 				cerr << "no contextSwitch" << endl;
@@ -3191,7 +3188,7 @@ void Executor::run(ExecutionState &initialState) {
 
 		updateStates(&state);
 
-		processTimers(&state, MaxInstructionTime);
+//		processTimers(&state, MaxInstructionTime);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		if (MaxMemory) {
@@ -3415,7 +3412,7 @@ void Executor::terminateStateOnError(ExecutionState &state,
 	//add by ywh to product the interleave of thread
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	map<unsigned, unsigned>::iterator iter;
-
+	cerr << "the wrong state Id is " << state.stateId << endl;
 	for(iter = state.interleaveRecord.begin(); iter != state.interleaveRecord.end(); iter++){
 		cerr << "threadId " << iter->first
 				<< " code line " << iter->second <<endl;

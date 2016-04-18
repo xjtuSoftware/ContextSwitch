@@ -569,7 +569,6 @@ public:
 
 	void printPrefix();
 
-	void isGlobal();
 };
 
 } // End klee namespace
