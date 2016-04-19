@@ -225,6 +225,10 @@ private:
 	unsigned m_testIndex;  // number of tests written so far
 	unsigned m_pathsExplored; // number of paths explored so far
 
+	//add by ywh
+	unsigned m_States; // number of States
+	unsigned m_ranStates; // number of ran states
+
 	// used for writing .ktest files
 	int m_argc;
 	char **m_argv;
@@ -236,6 +240,7 @@ public:
 	std::ostream &getInfoStream() const {
 		return *m_infoFile;
 	}
+
 	unsigned getNumTestCases() {
 		return m_testIndex;
 	}
@@ -244,6 +249,21 @@ public:
 	}
 	void incPathsExplored() {
 		m_pathsExplored++;
+	}
+
+	//record for contextSwitch
+	unsigned getNumOfStates(){
+		return m_States;
+	}
+	void setNumOfStates(unsigned numOfStates){
+		this->m_States = numOfStates;
+	}
+	//record for ranState
+	unsigned getNumOfranStates(){
+		return m_ranStates;
+	}
+	void setNumOfranStates(unsigned numOfRanStates){
+		this->m_ranStates = numOfRanStates;
 	}
 
 	void setInterpreter(Interpreter *i);
@@ -1470,11 +1490,16 @@ int main(int argc, char **argv, char **envp) {
 	out_to_file.close();
 
 	stats << "\n";
-	stats << "KLEE: done: total instructions = " << instructions << "\n";
-	stats << "KLEE: done: completed paths = " << handler->getNumPathsExplored()
+
+	//output the message for contextSwitch Test
+	stats << "contextSwitch: done: total run instructions = " << instructions << "\n";
+	stats << "contextSwitch: done: total State = " << handler->getNumOfStates() << "\n";
+	stats << "contextSwitch: done: completed State = " << handler->getNumOfranStates() << "\n";
+	stats << "contextSwitch: done: runed State = " << handler->getNumPathsExplored()
 			<< "\n";
-	stats << "KLEE: done: generated tests = " << handler->getNumTestCases()
-			<< "\n";
+	/*stats << "KLEE: done: generated tests = " << handler->getNumTestCases()
+			<< "\n";*/
+
 	std::cerr << stats.str();
 	handler->getInfoStream() << stats.str();
 	BufferPtr.take();

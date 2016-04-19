@@ -41,6 +41,10 @@ public:
   virtual void processTestCase(const ExecutionState &state,
                                const char *err, 
                                const char *suffix) = 0;
+  virtual unsigned getNumOfStates() = 0;
+  virtual void setNumOfStates(unsigned numOfStates) = 0;
+  virtual unsigned getNumOfranStates() = 0;
+  virtual void setNumOfranStates(unsigned numOfranStates) = 0;
 };
 
 class Interpreter {

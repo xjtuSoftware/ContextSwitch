@@ -245,7 +245,7 @@ Executor::Executor(const InterpreterOptions &opts, InterpreterHandler *ih) :
 		condManager(),*/
 
 		numOfStates(0),
-
+		numOfranStates(0),
 		isFinished(false),
 		isPrefixFinished(false),
 		prefix(NULL),
@@ -2976,6 +2976,10 @@ void Executor::run(ExecutionState &initialState) {
 	//test the num of state
 	//int num = 0;
 
+	unsigned originalStateId = 0;
+	vector<unsigned> recordState;
+	recordState.push_back(originalStateId);
+
 	while (!states.empty() && !haltExecution) {
 
 		/*cerr << "------------------------------> states " << states.size()
@@ -2983,13 +2987,23 @@ void Executor::run(ExecutionState &initialState) {
 
 		ExecutionState &state = searcher->selectState();
 
+		//
+		if(originalStateId != state.stateId){
+
+			vector<unsigned>::iterator iter = std::find(recordState.begin(), recordState.end(), state.stateId);
+			if(iter == recordState.end()){
+				numOfranStates++;
+				recordState.push_back(state.stateId);
+			}
+			originalStateId = state.stateId;
+		}
 		//cerr << "the address of state--------------->" << &state << endl;
 
 		Thread* thread = state.getNextThread();
 
 /////////////Test////////////////////////////////////////////////////////////////
 		firstLpTimes++;
-		cerr << "states excute num:" << state.stateId << endl;
+		//cerr << "states excute num:" << state.stateId << endl;
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -3028,7 +3042,7 @@ void Executor::run(ExecutionState &initialState) {
 
 		//listenerService->instructionExecuted(state, ki);
 
-		ki->inst->dump();
+		//ki->inst->dump();
 
 		if (execStatus != SUCCESS) {
 
@@ -3081,7 +3095,7 @@ void Executor::run(ExecutionState &initialState) {
 			if(state.ncs >= 2 || !canContextSwitch){
 				newState = &state;
 				contextSwitch = false;
-				cerr << "no contextSwitch" << endl;
+				//cerr << "no contextSwitch" << endl;
 			} else {
 
 				newState = new ExecutionState(state);
@@ -3186,6 +3200,8 @@ void Executor::run(ExecutionState &initialState) {
 
 		updateStates(&state);
 
+		interpreterHandler->setNumOfStates(numOfStates);
+		interpreterHandler->setNumOfranStates(numOfranStates);
 //		processTimers(&state, MaxInstructionTime);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3409,6 +3425,9 @@ void Executor::terminateStateOnError(ExecutionState &state,
 
 	//add by ywh to product the interleave of thread
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	interpreterHandler->setNumOfStates(numOfStates);
+	interpreterHandler->setNumOfranStates(numOfranStates);
+
 	map<unsigned, unsigned>::iterator iter;
 	cerr << "the wrong state Id is " << state.stateId << endl;
 	for(iter = state.interleaveRecord.begin(); iter != state.interleaveRecord.end(); iter++){
@@ -3416,7 +3435,6 @@ void Executor::terminateStateOnError(ExecutionState &state,
 				<< " code line " << iter->second <<endl;
 	}
 
-	cerr << "the number of states" << numOfStates << endl;
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	std::string message = messaget.str();

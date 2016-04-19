@@ -107,6 +107,8 @@ class Executor: public Interpreter {
 public:
 	//the number of state
 	unsigned numOfStates;
+	//the number of ran state
+	unsigned numOfranStates;
 
 	//contextSwitch if the Load/store the global, and the mutexunlock
 	bool canContextSwitch;
